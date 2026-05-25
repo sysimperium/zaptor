@@ -12,7 +12,7 @@ const { Server } = require('socket.io');
 const { createClient } = require('@supabase/supabase-js');
 
 // ── Configuração ─────────────────────────────────────────────
-const PORT = process.env.PORT || 3001;
+const PORT = 3001;
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 const ADMIN_KEY = process.env.ADMIN_KEY || 'admin123'; // Troque em produção!
