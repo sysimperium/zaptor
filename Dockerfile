@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:22-slim
 
 # Instala o Google Chrome e dependências do Puppeteer
 RUN apt-get update \
