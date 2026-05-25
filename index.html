@@ -1,206 +1,1384 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ZapTor 2.0 | Central de Atendimento</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ZapTor — WhatsApp Compartilhado</title>
+    <meta name="description" content="ZapTor: Plataforma de WhatsApp compartilhado para equipes." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; }
-        .chat-bg { background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-repeat: repeat; opacity: 0.06; position: absolute; inset: 0; z-index: 0; }
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; }
+        /* ── Reset & Base ─────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --green: #25d366;
+            --green-dark: #128c7e;
+            --green-light: #dcf8c6;
+            --bg-app: #eae6df;
+            --bg-sidebar: #ffffff;
+            --bg-header: #f0f2f5;
+            --bg-msg-in: #ffffff;
+            --bg-msg-out: #d9fdd3;
+            --text-primary: #111b21;
+            --text-secondary: #54656f;
+            --text-light: #8696a0;
+            --border: #e9edef;
+            --shadow: 0 2px 24px rgba(0,0,0,.12);
+            --radius: 12px;
+            --font: 'Inter', system-ui, sans-serif;
+        }
+        html, body { height: 100%; overflow: hidden; font-family: var(--font); background: var(--bg-app); color: var(--text-primary); }
+        button { cursor: pointer; font-family: var(--font); border: none; background: none; }
+        input { font-family: var(--font); }
+        a { color: inherit; text-decoration: none; }
+        svg { display: block; flex-shrink: 0; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+
+        /* ── Views ────────────────────────────────────── */
+        .view { display: none; position: fixed; inset: 0; }
+        .view.active { display: flex; }
+
+        /* ── Loading ──────────────────────────────────── */
+        #view-loading { align-items: center; justify-content: center; flex-direction: column; gap: 20px; background: var(--bg-app); }
+        .loader-logo { width: 72px; height: 72px; background: var(--green); border-radius: 50%; display: flex; align-items: center; justify-content: center; animation: pulse 2s ease-in-out infinite; }
+        .loader-logo svg { color: white; }
+        @keyframes pulse { 0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(37,211,102,.4)} 50%{transform:scale(1.05);box-shadow:0 0 0 16px rgba(37,211,102,0)} }
+        .loader-text { font-size: 14px; color: var(--text-secondary); font-weight: 500; }
+
+        /* ── QR View ──────────────────────────────────── */
+        #view-qr { align-items: center; justify-content: center; background: var(--bg-app); }
+        .qr-card {
+            background: white; border-radius: 20px; padding: 40px; box-shadow: var(--shadow);
+            display: flex; flex-direction: column; align-items: center; gap: 20px;
+            max-width: 420px; width: 90%; text-align: center;
+        }
+        .qr-card h2 { font-size: 22px; font-weight: 700; }
+        .qr-card p { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
+        #qr-image { width: 240px; height: 240px; border-radius: 12px; border: 4px solid var(--border); object-fit: contain; }
+        .qr-waiting { width: 240px; height: 240px; border-radius: 12px; border: 4px dashed var(--border); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text-light); font-size: 13px; }
+        .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+        .status-badge.connected { background: #e8f9ef; color: #1a7a3f; }
+        .status-badge.disconnected { background: #fef0f0; color: #c0392b; }
+        .status-badge.loading { background: #fff8e1; color: #e67e22; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .dot.green { background: var(--green); }
+        .dot.red { background: #e74c3c; }
+        .dot.yellow { background: #f39c12; animation: blink 1s step-start infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* ── Login View ───────────────────────────────── */
+        #view-login { align-items: center; justify-content: center; background: var(--bg-app); }
+        .login-card {
+            background: white; border-radius: 24px; padding: 48px 40px; box-shadow: var(--shadow);
+            width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 28px;
+        }
+        .login-header { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+        .login-icon { width: 68px; height: 68px; background: linear-gradient(135deg, var(--green), var(--green-dark)); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .login-icon svg { color: white; }
+        .login-header h1 { font-size: 26px; font-weight: 800; }
+        .login-header p { font-size: 14px; color: var(--text-secondary); }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
+        .form-group input {
+            width: 100%; padding: 14px 16px; border: 2px solid var(--border); border-radius: 12px;
+            font-size: 15px; outline: none; transition: border-color .2s, box-shadow .2s;
+            background: #f8f9fa;
+        }
+        .form-group input:focus { border-color: var(--green); box-shadow: 0 0 0 4px rgba(37,211,102,.12); background: white; }
+        .btn-primary {
+            width: 100%; padding: 15px; background: linear-gradient(135deg, var(--green), var(--green-dark));
+            color: white; border-radius: 12px; font-size: 15px; font-weight: 700;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: opacity .2s, transform .1s; box-shadow: 0 4px 16px rgba(37,211,102,.35);
+        }
+        .btn-primary:hover:not(:disabled) { opacity: .92; transform: translateY(-1px); }
+        .btn-primary:active:not(:disabled) { transform: translateY(0); }
+        .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+        .error-msg { background: #fef0f0; color: #c0392b; border-radius: 10px; padding: 12px 16px; font-size: 13px; font-weight: 500; display: none; }
+        .error-msg.show { display: block; }
+        .login-footer { text-align: center; font-size: 12px; color: var(--text-light); }
+        .link-admin { color: var(--green-dark); font-weight: 600; cursor: pointer; }
+        .link-admin:hover { text-decoration: underline; }
+
+        /* ── Chat View ────────────────────────────────── */
+        #view-chat { flex-direction: row; overflow: hidden; }
+
+        /* Sidebar */
+        .sidebar {
+            width: 360px; min-width: 260px; max-width: 400px; background: var(--bg-sidebar);
+            display: flex; flex-direction: column; border-right: 1px solid var(--border);
+            height: 100%;
+        }
+        @media (max-width: 768px) { .sidebar { width: 100%; max-width: 100%; } }
+
+        .sidebar-header {
+            padding: 12px 16px; background: var(--bg-header);
+            display: flex; align-items: center; justify-content: space-between; min-height: 60px;
+        }
+        .sidebar-user { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+        .avatar { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: white; flex-shrink: 0; overflow: hidden; }
+        .avatar.sm { width: 36px; height: 36px; font-size: 13px; }
+        .avatar.md { width: 48px; height: 48px; font-size: 16px; }
+        .avatar.lg { width: 52px; height: 52px; font-size: 18px; }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .avatar-bg { background: linear-gradient(135deg, #06cf9c, var(--green-dark)); }
+        .avatar-bg-blue { background: linear-gradient(135deg, #6c63ff, #4a90d9); }
+        .user-name { font-weight: 600; font-size: 15px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .user-role { font-size: 11px; color: var(--text-light); }
+        .icon-btn { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); transition: background .15s; }
+        .icon-btn:hover { background: rgba(0,0,0,.07); }
+
+        .connection-bar {
+            padding: 6px 16px; font-size: 12px; font-weight: 600;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            transition: background .3s;
+        }
+        .connection-bar.connected { background: #e8f9ef; color: #1a7a3f; }
+        .connection-bar.disconnected { background: #fef0f0; color: #c0392b; }
+        .connection-bar.loading { background: #fff8e1; color: #a57c00; }
+
+        .search-bar { padding: 8px 12px; background: white; border-bottom: 1px solid var(--border); }
+        .search-input-wrap { background: var(--bg-header); border-radius: 8px; display: flex; align-items: center; padding: 8px 12px; gap: 8px; }
+        .search-input-wrap input { flex: 1; border: none; background: none; outline: none; font-size: 14px; color: var(--text-primary); }
+        .search-input-wrap input::placeholder { color: var(--text-light); }
+
+        .filter-tabs { display: flex; padding: 4px 12px; gap: 4px; border-bottom: 1px solid var(--border); }
+        .filter-tab { padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--text-secondary); transition: background .15s, color .15s; }
+        .filter-tab:hover { background: var(--bg-header); }
+        .filter-tab.active { background: #e8f9ef; color: var(--green-dark); }
+
+        .chat-list { flex: 1; overflow-y: auto; }
+        .chat-item {
+            display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+            cursor: pointer; transition: background .15s; border-bottom: 1px solid var(--border);
+            position: relative;
+        }
+        .chat-item:hover { background: var(--bg-header); }
+        .chat-item.active { background: #f0f2f5; }
+        .chat-info { flex: 1; min-width: 0; }
+        .chat-name { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .chat-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 3px; }
+        .chat-time { font-size: 11px; color: var(--text-light); flex-shrink: 0; }
+        .chat-preview { font-size: 13px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+        .unread-badge { background: var(--green); color: white; border-radius: 999px; min-width: 20px; height: 20px; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 5px; flex-shrink: 0; }
+        .unread-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+        .mark-unread-btn { position: absolute; right: 16px; bottom: 12px; opacity: 0; color: var(--text-light); transition: opacity .15s; }
+        .chat-item:hover .mark-unread-btn { opacity: 1; }
+        .mark-unread-btn:hover { color: var(--green-dark); }
+
+        .empty-list { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; color: var(--text-light); gap: 8px; font-size: 14px; }
+        .loading-list { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; gap: 12px; color: var(--text-secondary); font-size: 14px; }
+
+        /* Main Chat Area */
+        .chat-area {
+            flex: 1; display: flex; flex-direction: column; background: var(--bg-app);
+            position: relative; overflow: hidden;
+        }
+        @media (max-width: 768px) { .chat-area { display: none; } .chat-area.mobile-open { display: flex; position: fixed; inset: 0; z-index: 50; } }
+
+        /* WhatsApp-like pattern background */
+        .chat-area::before {
+            content: ''; position: absolute; inset: 0; opacity: .04; pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .chat-header {
+            background: var(--bg-header); padding: 10px 20px; display: flex; align-items: center;
+            justify-content: space-between; z-index: 10; min-height: 60px;
+            border-bottom: 1px solid var(--border); gap: 12px;
+        }
+        .chat-header-info { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+        .back-btn { display: none; }
+        @media (max-width: 768px) { .back-btn { display: flex !important; } }
+        .chat-header-name { font-weight: 700; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .messages-wrap { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 4px; z-index: 1; }
+
+        .msg-row { display: flex; margin-bottom: 2px; }
+        .msg-row.out { justify-content: flex-end; }
+        .msg-row.in { justify-content: flex-start; }
+
+        .msg-bubble {
+            max-width: 75%; border-radius: 8px; padding: 6px 10px 20px; position: relative;
+            box-shadow: 0 1px 2px rgba(0,0,0,.08); min-width: 80px;
+        }
+        .msg-row.out .msg-bubble { background: var(--bg-msg-out); border-top-right-radius: 2px; }
+        .msg-row.in .msg-bubble { background: var(--bg-msg-in); border-top-left-radius: 2px; }
+
+        .msg-sender { font-size: 12px; font-weight: 700; color: var(--green-dark); margin-bottom: 2px; }
+        .msg-sender.other { color: #9c27b0; }
+        .msg-body { font-size: 14.5px; line-height: 1.45; word-break: break-word; white-space: pre-wrap; }
+        .msg-body strong { font-weight: 700; }
+        .msg-time { font-size: 10px; color: var(--text-light); position: absolute; bottom: 4px; right: 8px; }
+
+        .msg-media-loading { font-size: 12px; color: var(--text-light); font-style: italic; display: flex; align-items: center; gap: 6px; }
+        .msg-media-loading .mini-spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin .7s linear infinite; }
+        .msg-img { max-width: 260px; border-radius: 6px; cursor: pointer; display: block; margin-bottom: 4px; }
+        .msg-video { max-width: 260px; border-radius: 6px; display: block; margin-bottom: 4px; }
+        .msg-audio { max-width: 220px; height: 36px; display: block; margin-bottom: 4px; }
+        .msg-file { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,.05); border-radius: 8px; padding: 8px 10px; margin-bottom: 4px; text-decoration: none; max-width: 240px; }
+        .msg-file span { font-size: 13px; color: #2563eb; text-decoration: underline; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+        .msg-call { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-style: italic; font-size: 14px; background: rgba(0,0,0,.04); border-radius: 8px; padding: 8px 10px; margin-bottom: 4px; }
+
+        /* Input area */
+        .input-area { background: var(--bg-header); padding: 10px 16px; z-index: 10; border-top: 1px solid var(--border); }
+        .file-preview { background: white; border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); }
+        .file-preview img { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
+        .file-preview-icon { width: 40px; height: 40px; background: var(--bg-header); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); }
+        .file-preview-name { flex: 1; font-size: 13px; font-weight: 500; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .file-preview-remove { color: var(--text-secondary); transition: color .15s; }
+        .file-preview-remove:hover { color: #e74c3c; }
+        .input-row { display: flex; align-items: center; gap: 8px; }
+        .msg-input-wrap { flex: 1; background: white; border-radius: 24px; display: flex; align-items: center; padding: 4px 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+        .msg-input { flex: 1; border: none; outline: none; font-size: 15px; padding: 8px 4px; color: var(--text-primary); background: none; resize: none; max-height: 80px; }
+        .msg-input::placeholder { color: var(--text-light); }
+        .send-btn { width: 48px; height: 48px; border-radius: 50%; background: var(--green); color: white; display: flex; align-items: center; justify-content: center; transition: background .15s, transform .1s; box-shadow: 0 2px 8px rgba(37,211,102,.4); flex-shrink: 0; }
+        .send-btn:hover:not(:disabled) { background: var(--green-dark); transform: scale(1.05); }
+        .send-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+        .attach-btn { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); transition: background .15s; }
+        .attach-btn:hover { background: rgba(0,0,0,.07); }
+        .attach-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+        /* Welcome screen */
+        .welcome-screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center; z-index: 1; }
+        .welcome-logo { width: 160px; height: 160px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 32px rgba(0,0,0,.1); margin-bottom: 28px; }
+        .welcome-logo img { width: 100px; opacity: .3; filter: grayscale(1); }
+        .welcome-screen h2 { font-size: 28px; font-weight: 300; color: var(--text-secondary); margin-bottom: 8px; }
+        .welcome-screen p { font-size: 14px; color: var(--text-light); max-width: 340px; line-height: 1.7; }
+        .welcome-sig { margin-top: 20px; font-size: 13px; color: var(--text-secondary); background: white; padding: 8px 16px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+
+        /* ── Admin Panel ──────────────────────────────── */
+        #view-admin { background: rgba(0,0,0,.6); align-items: center; justify-content: center; z-index: 100; }
+        .admin-modal {
+            background: white; border-radius: 20px; width: 100%; max-width: 540px; max-height: 85vh;
+            display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 16px 64px rgba(0,0,0,.25);
+            margin: 20px;
+        }
+        .admin-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+        .admin-header h2 { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .admin-body { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
+        .admin-section-title { font-size: 12px; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 8px; }
+        .admin-add-form { display: flex; gap: 8px; }
+        .admin-add-form input { flex: 1; padding: 10px 14px; border: 2px solid var(--border); border-radius: 10px; font-size: 14px; outline: none; transition: border-color .2s; }
+        .admin-add-form input:focus { border-color: var(--green); }
+        .btn-add { padding: 10px 16px; background: var(--green); color: white; border-radius: 10px; font-weight: 600; font-size: 14px; white-space: nowrap; transition: background .15s; }
+        .btn-add:hover { background: var(--green-dark); }
+        .btn-add:disabled { opacity: .5; cursor: not-allowed; }
+        .user-list { display: flex; flex-direction: column; gap: 8px; }
+        .user-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border); }
+        .user-item .user-item-name { flex: 1; font-weight: 500; font-size: 14px; }
+        .user-item .user-item-role { font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
+        .role-admin { background: #e8f0fe; color: #1a56db; }
+        .role-user { background: #f0f2f5; color: #54656f; }
+        .user-item-inactive .user-item-name { color: var(--text-light); text-decoration: line-through; }
+        .btn-toggle { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px; transition: background .15s; }
+        .btn-toggle.enable { background: #e8f9ef; color: #1a7a3f; }
+        .btn-toggle.disable { background: #fff0f0; color: #c0392b; }
+        .btn-delete { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--text-light); transition: background .15s, color .15s; }
+        .btn-delete:hover { background: #fff0f0; color: #c0392b; }
+        .admin-login-wrap { display: flex; flex-direction: column; gap: 16px; align-items: center; padding: 20px; }
+        .admin-login-wrap h3 { font-size: 16px; font-weight: 600; }
+        .admin-login-wrap input { width: 100%; padding: 12px 16px; border: 2px solid var(--border); border-radius: 10px; font-size: 14px; outline: none; transition: border-color .2s; }
+        .admin-login-wrap input:focus { border-color: var(--green); }
+        .admin-whatsapp-info { background: var(--bg-header); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 4px; }
+        .admin-whatsapp-info .label { font-size: 12px; color: var(--text-light); }
+        .admin-whatsapp-info .value { font-size: 14px; font-weight: 600; }
+
+        /* ── Notifications ────────────────────────────── */
+        #notif-container { position: fixed; top: 16px; right: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+        .notif {
+            background: white; border-radius: 12px; box-shadow: var(--shadow); padding: 12px 16px;
+            display: flex; align-items: flex-start; gap: 10px; max-width: 320px;
+            animation: slideIn .3s ease; border-left: 4px solid var(--green);
+        }
+        .notif.error { border-left-color: #e74c3c; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(100%); } }
+        .notif-icon { width: 36px; height: 36px; border-radius: 50%; background: var(--green-light); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .notif-icon.error { background: #fef0f0; }
+        .notif-body { flex: 1; }
+        .notif-title { font-weight: 700; font-size: 13px; margin-bottom: 2px; }
+        .notif-text { font-size: 12px; color: var(--text-secondary); }
+        .notif-close { color: var(--text-light); font-size: 18px; line-height: 1; flex-shrink: 0; padding: 0 2px; }
+        .notif-close:hover { color: var(--text-primary); }
+
+        /* ── Utilities ────────────────────────────────── */
+        .hidden { display: none !important; }
+        .flex { display: flex; }
+        .items-center { align-items: center; }
+        .gap-2 { gap: 8px; }
+        .ml-auto { margin-left: auto; }
+        .text-sm { font-size: 13px; }
+        .text-xs { font-size: 11px; }
+        .font-bold { font-weight: 700; }
+        .text-green { color: var(--green-dark); }
+        .text-muted { color: var(--text-light); }
+        .w-full { width: 100%; }
+        .mt-4 { margin-top: 16px; }
+        .sound-toggle { font-size: 20px; cursor: pointer; opacity: .7; transition: opacity .15s; user-select: none; }
+        .sound-toggle:hover { opacity: 1; }
     </style>
 </head>
-<body class="h-screen flex items-center justify-center overflow-hidden">
-    
-    <!-- Login Screen -->
-    <div id="login-screen" class="z-20 bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md text-center transform transition-all">
-        <div class="mb-6 flex justify-center">
-            <div class="bg-green-500 p-4 rounded-full text-white text-4xl shadow-lg">⚡</div>
-        </div>
-        <h1 class="text-3xl font-bold text-gray-800 mb-2">ZapTor</h1>
-        <p class="text-gray-500 mb-8">Identifique-se para entrar</p>
-        <input type="text" id="username" placeholder="Seu Nome ou Setor" class="w-full p-4 border border-gray-200 rounded-xl mb-4 focus:ring-2 focus:ring-green-400 outline-none transition-all">
-        <button onclick="login()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl transition-all shadow-md">Entrar</button>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     NOTIFICATION CONTAINER
+═══════════════════════════════════════════════ -->
+<div id="notif-container"></div>
+
+<!-- ═══════════════════════════════════════════════
+     VIEW: LOADING
+═══════════════════════════════════════════════ -->
+<div id="view-loading" class="view active">
+    <div class="loader-logo">
+        <!-- WhatsApp-like icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
     </div>
+    <div class="loader-text" id="loading-text">Conectando ao servidor...</div>
+</div>
 
-    <!-- Main Chat UI -->
-    <div id="chat-screen" class="hidden z-10 w-full h-full flex flex-row max-w-[1600px] md:h-[95%] bg-white md:rounded-2xl shadow-2xl overflow-hidden">
-        
-        <!-- Sidebar: Lista de Conversas -->
-        <div class="w-1/3 md:w-96 bg-gray-50 border-r flex flex-col shrink-0">
-            <div class="p-4 bg-white border-b flex justify-between items-center">
-                <span class="font-bold text-xl text-green-600">ZapTor 2.0</span>
-                <span id="status-badge" class="px-2 py-1 bg-gray-200 text-gray-500 text-[9px] font-bold rounded-full uppercase">...</span>
-            </div>
-
-            <!-- Container do QR Code (Só aparece se deslogado) -->
-            <div id="qr-container" class="hidden p-4 text-center border-b bg-orange-50">
-                <div id="qr-code" class="bg-white p-2 rounded shadow-inner inline-block"></div>
-                <p class="text-[10px] text-orange-600 mt-2 font-bold">ESCANEIE PARA CONECTAR</p>
-            </div>
-
-            <!-- Lista de Chats -->
-            <div id="chat-list" class="flex-1 overflow-y-auto custom-scrollbar">
-                <p class="p-8 text-center text-gray-400 text-sm">Carregando conversas...</p>
-            </div>
-
-            <div class="p-4 bg-white border-t text-xs">
-                <p class="text-gray-400">Operador: <b id="display-user" class="text-gray-600"></b></p>
-            </div>
+<!-- ═══════════════════════════════════════════════
+     VIEW: QR CODE
+═══════════════════════════════════════════════ -->
+<div id="view-qr" class="view">
+    <div class="qr-card">
+        <div>
+            <span class="status-badge loading" id="qr-status-badge">
+                <span class="dot yellow"></span>
+                <span>Aguardando escaneio</span>
+            </span>
         </div>
-
-        <!-- Chat Area -->
-        <div class="flex-1 flex flex-col relative bg-[#efeae2]">
-            <div class="chat-bg"></div>
-            
-            <!-- Header do Chat Ativo -->
-            <div id="chat-header" class="bg-white p-4 border-b z-10 hidden">
-                <h2 id="active-chat-name" class="font-bold text-gray-800"></h2>
-                <p id="active-chat-id" class="text-[10px] text-gray-400"></p>
+        <h2>Conectar WhatsApp</h2>
+        <p>Abra o WhatsApp no celular →<br><strong>Dispositivos Conectados → Conectar dispositivo</strong><br>e escaneie o QR Code abaixo.</p>
+        <div id="qr-container">
+            <div class="qr-waiting" id="qr-waiting">
+                <div class="spinner"></div>
+                <span>Gerando QR Code...</span>
             </div>
+            <img id="qr-image" class="hidden" alt="QR Code" />
+        </div>
+        <p class="text-xs text-muted">O QR atualiza automaticamente. Não feche esta tela.</p>
+    </div>
+</div>
 
-            <!-- Mensagens -->
-            <div id="messages-container" class="flex-1 overflow-y-auto p-6 space-y-3 z-10 custom-scrollbar">
-                <div class="flex items-center justify-center h-full">
-                    <p class="bg-white/80 p-4 rounded-2xl text-gray-500 text-sm shadow-sm">Selecione uma conversa ao lado para começar.</p>
+<!-- ═══════════════════════════════════════════════
+     VIEW: LOGIN
+═══════════════════════════════════════════════ -->
+<div id="view-login" class="view">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="login-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <h1>ZapTor</h1>
+            <p>Informe seu nome para entrar</p>
+        </div>
+        <form id="login-form" onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label for="login-name">Seu nome (conforme cadastrado)</label>
+                <input id="login-name" type="text" placeholder="Ex: João (Vendas)" autocomplete="off" required />
+            </div>
+            <div class="error-msg" id="login-error"></div>
+            <button type="submit" class="btn-primary mt-4" id="login-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
+                <span>Entrar no ZapTor</span>
+            </button>
+        </form>
+        <div class="login-footer">
+            Administrador? <span class="link-admin" onclick="openAdmin()">Acessar painel admin</span>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     VIEW: CHAT
+═══════════════════════════════════════════════ -->
+<div id="view-chat" class="view">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-user">
+                <div class="avatar md avatar-bg" id="sidebar-avatar"></div>
+                <div>
+                    <div class="user-name" id="sidebar-username"></div>
+                    <div class="user-role" id="sidebar-role"></div>
                 </div>
             </div>
-            
-            <!-- Input (Só aparece se houver chat ativo) -->
-            <div id="input-area" class="p-4 bg-gray-100 border-t z-10 hidden">
-                <form id="message-form" class="flex space-x-2">
-                    <input type="text" id="msg-input" placeholder="Digite sua mensagem..." class="flex-1 p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-400 outline-none">
-                    <button type="submit" class="bg-green-500 text-white px-6 rounded-xl font-bold hover:bg-green-600 transition-all">Enviar</button>
-                </form>
+            <div class="flex gap-2">
+                <button class="icon-btn sound-toggle" id="sound-toggle-btn" title="Ativar/Desativar som">🔔</button>
+                <button class="icon-btn" onclick="openAdmin()" title="Painel Admin">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/></svg>
+                </button>
+                <button class="icon-btn" onclick="logout()" title="Sair">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+                </button>
             </div>
         </div>
-    </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script>
-        const BACKEND_URL = "https://zaptor.onrender.com"; 
-        let socket, currentUser = "", activeChatId = "";
+        <div class="connection-bar disconnected" id="conn-bar">
+            <span class="dot red"></span>
+            <span id="conn-text">Aguardando WhatsApp...</span>
+        </div>
 
-        function login() {
-            const user = document.querySelector("#username").value;
-            if(!user) return;
-            currentUser = user;
-            document.querySelector("#display-user").innerText = user;
-            document.querySelector("#login-screen").classList.add("hidden");
-            document.querySelector("#chat-screen").classList.remove("hidden");
-            initSocket();
-        }
+        <div class="search-bar">
+            <div class="search-input-wrap">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input type="text" id="search-input" placeholder="Pesquisar conversas..." oninput="filterChats()" />
+            </div>
+        </div>
 
-        function initSocket() {
-            socket = io(BACKEND_URL);
+        <div class="filter-tabs">
+            <button class="filter-tab active" id="tab-all" onclick="setFilter('all')">Todos</button>
+            <button class="filter-tab" id="tab-unread" onclick="setFilter('unread')">Não lidas</button>
+            <button class="filter-tab" id="tab-groups" onclick="setFilter('groups')">Grupos</button>
+        </div>
 
-            socket.on('whatsapp_status', (data) => {
-                const badge = document.querySelector("#status-badge");
-                if(data.ready) {
-                    badge.innerText = "ONLINE";
-                    badge.className = "px-2 py-1 bg-green-500 text-white text-[9px] font-bold rounded-full";
-                    document.querySelector("#qr-container").classList.add("hidden");
-                    loadChatList();
-                } else {
-                    badge.innerText = "AGUARDANDO";
-                    badge.className = "px-2 py-1 bg-orange-400 text-white text-[9px] font-bold rounded-full";
-                    if(data.qr) showQR(data.qr);
-                }
-            });
+        <div class="chat-list" id="chat-list">
+            <div class="loading-list">
+                <div class="spinner"></div>
+                <span>Sincronizando conversas...</span>
+            </div>
+        </div>
+    </aside>
 
-            socket.on('whatsapp_qr', (qr) => showQR(qr));
-            socket.on('whatsapp_message', (msg) => {
-                if(msg.chatId === activeChatId) renderMessage(msg);
-                loadChatList(); // Atualiza a lista para mostrar a última msg
-            });
-        }
+    <!-- CHAT AREA -->
+    <section class="chat-area" id="chat-area">
+        <div class="welcome-screen" id="welcome-screen">
+            <div class="welcome-logo">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/1024px-WhatsApp.svg.png" alt="WhatsApp" />
+            </div>
+            <h2>ZapTor</h2>
+            <p>Selecione uma conversa na lista ao lado para começar a enviar mensagens.</p>
+            <div class="welcome-sig" id="welcome-sig"></div>
+        </div>
 
-        async function loadChatList() {
-            console.log("Tentando carregar lista de chats...");
-            try {
-                const res = await fetch(`${BACKEND_URL}/api/chats`);
-                if (!res.ok) {
-                    const errData = await res.json();
-                    console.error("Erro do servidor ao buscar chats:", errData);
-                    document.querySelector("#chat-list").innerHTML = `<p class="p-4 text-xs text-red-500">Erro: ${errData.error || 'Falha no servidor'}</p>`;
-                    return;
-                }
-                const chats = await res.json();
-                console.log("Chats recebidos:", chats.length);
-                const list = document.querySelector("#chat-list");
-                if (chats.length === 0) {
-                    list.innerHTML = `<p class="p-8 text-center text-gray-400 text-xs">Nenhuma conversa encontrada ou WhatsApp ainda carregando...</p>`;
-                    return;
-                }
-                list.innerHTML = chats.map(chat => `
-                    <div onclick="selectChat('${chat.id}', '${chat.name}')" class="p-4 border-b hover:bg-white cursor-pointer transition-all ${activeChatId === chat.id ? 'bg-white border-l-4 border-l-green-500' : ''}">
-                        <div class="flex justify-between items-center">
-                            <b class="text-sm text-gray-700 truncate">${chat.name || 'Sem Nome'}</b>
-                            ${chat.unreadCount > 0 ? `<span class="bg-green-500 text-white text-[10px] px-1.5 rounded-full">${chat.unreadCount}</span>` : ''}
-                        </div>
-                        <p class="text-[10px] text-gray-400 truncate mt-1">${chat.id}</p>
+        <!-- Active chat (hidden by default) -->
+        <div class="hidden" id="active-chat-container" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+            <div class="chat-header">
+                <button class="icon-btn back-btn" onclick="closeChat()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+                </button>
+                <div class="chat-header-info">
+                    <div class="avatar md avatar-bg" id="chat-header-avatar"></div>
+                    <div>
+                        <div class="chat-header-name" id="chat-header-name"></div>
+                        <div class="text-xs text-muted" id="chat-header-sub"></div>
                     </div>
-                `).join('');
-            } catch(e) { 
-                console.error("Erro de rede ao carregar chats:", e); 
-                document.querySelector("#chat-list").innerHTML = `<p class="p-4 text-xs text-red-500">Erro de conexão. Verifique se o servidor está online.</p>`;
+                </div>
+                <div class="flex gap-2">
+                    <button class="icon-btn" onclick="markChatUnread()" title="Marcar como não lida">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="messages-wrap" id="messages-wrap"></div>
+            <div class="input-area">
+                <div class="file-preview hidden" id="file-preview">
+                    <div id="file-preview-thumb"></div>
+                    <span class="file-preview-name" id="file-preview-name"></span>
+                    <button class="file-preview-remove" onclick="clearFile()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <div class="input-row">
+                    <input type="file" id="file-input" class="hidden" onchange="handleFileSelect(event)" />
+                    <button class="attach-btn" id="attach-btn" onclick="document.getElementById('file-input').click()" title="Anexar arquivo">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    </button>
+                    <div class="msg-input-wrap">
+                        <input type="text" class="msg-input" id="msg-input" placeholder="Mensagem... (Cole imagens com Ctrl+V)" autocomplete="off" onkeydown="handleInputKey(event)" onpaste="handlePaste(event)" />
+                    </div>
+                    <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled title="Enviar">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="transform:translateX(1px)"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     VIEW: ADMIN PANEL
+═══════════════════════════════════════════════ -->
+<div id="view-admin" class="view" onclick="handleAdminBackdrop(event)">
+    <div class="admin-modal" id="admin-modal">
+        <div class="admin-header">
+            <h2>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Painel Administrativo
+            </h2>
+            <button class="icon-btn" onclick="closeAdmin()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="admin-body" id="admin-body">
+            <!-- Preenchido por JS -->
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SCRIPTS
+═══════════════════════════════════════════════ -->
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+// ╔══════════════════════════════════════════════════════════╗
+// ║  ZapTor Frontend v2.0                                    ║
+// ║  Edite BACKEND_URL abaixo com a URL do seu Railway       ║
+// ╚══════════════════════════════════════════════════════════╝
+
+const BACKEND_URL = window.ZAPTOR_BACKEND_URL
+    || localStorage.getItem('zaptor_backend_url')
+    || `${window.location.protocol}//${window.location.hostname}:3001`;
+
+// ── Estado da Aplicação ──────────────────────────────────────
+const state = {
+    user: null,
+    chats: [],
+    activeChat: null,
+    messages: [],
+    socket: null,
+    isReady: false,
+    filter: 'all',
+    selectedFile: null,
+    soundEnabled: true,
+    adminKey: null,
+    adminAuthed: false,
+    unreadOriginalTitle: document.title,
+    unreadCount: 0,
+};
+
+// ── Sons de Notificação ──────────────────────────────────────
+function playNotifSound() {
+    if (!state.soundEnabled) return;
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.type = 'sine'; o.frequency.value = 880;
+        g.gain.setValueAtTime(0, ctx.currentTime);
+        g.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.05);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+        o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.4);
+    } catch (e) {}
+}
+
+// ── Utilitários ──────────────────────────────────────────────
+function showView(name) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    const v = document.getElementById(`view-${name}`);
+    if (v) v.classList.add('active');
+}
+
+function getInitials(name) {
+    if (!name) return '?';
+    return name.substring(0, 2).toUpperCase();
+}
+
+function getAvatarColor(name) {
+    const colors = ['#06cf9c','#25d366','#128c7e','#6c63ff','#e67e22','#e74c3c','#3498db','#9b59b6'];
+    let hash = 0;
+    for (let c of (name||'')) hash = c.charCodeAt(0) + ((hash << 5) - hash);
+    return colors[Math.abs(hash) % colors.length];
+}
+
+function formatTime(ts) {
+    if (!ts) return '';
+    const d = new Date(ts * 1000);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    if (isToday) return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+function formatMsgTime(ts) {
+    if (!ts) return '';
+    return new Date(ts * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatText(text) {
+    if (!text) return '';
+    return text
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
+        .replace(/_([\s\S]+?)_/g, '<em>$1</em>');
+}
+
+function showNotif(title, text, isError = false) {
+    const c = document.getElementById('notif-container');
+    const n = document.createElement('div');
+    n.className = `notif${isError ? ' error' : ''}`;
+    n.innerHTML = `
+        <div class="notif-icon${isError ? ' error' : ''}">
+            ${isError
+                ? '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#e74c3c" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+                : '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#25d366" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'}
+        </div>
+        <div class="notif-body"><div class="notif-title">${title}</div><div class="notif-text">${text}</div></div>
+        <button class="notif-close" onclick="this.parentElement.remove()">×</button>`;
+    c.appendChild(n);
+    setTimeout(() => n.remove(), 5000);
+}
+
+// ── Inicialização ─────────────────────────────────────────────
+window.addEventListener('load', async () => {
+    showView('loading');
+    setLoadingText('Conectando ao servidor...');
+
+    // Restaura sessão do usuário
+    const saved = localStorage.getItem('zaptor_user');
+    if (saved) { try { state.user = JSON.parse(saved); } catch(e) {} }
+
+    // Sound toggle
+    const soundBtn = document.getElementById('sound-toggle-btn');
+    state.soundEnabled = localStorage.getItem('zaptor_sound') !== 'off';
+    soundBtn.textContent = state.soundEnabled ? '🔔' : '🔕';
+    soundBtn.onclick = () => {
+        state.soundEnabled = !state.soundEnabled;
+        soundBtn.textContent = state.soundEnabled ? '🔔' : '🔕';
+        localStorage.setItem('zaptor_sound', state.soundEnabled ? 'on' : 'off');
+    };
+
+    // Tenta conectar ao backend
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/status`, { signal: AbortSignal.timeout(8000) });
+        const data = await res.json();
+
+        initSocket();
+
+        if (!data.ready) {
+            // WhatsApp não conectado → mostrar QR
+            showView('qr');
+            if (data.hasQR) await fetchQR();
+        } else {
+            // WhatsApp pronto
+            state.isReady = true;
+            if (state.user) {
+                enterChat();
+            } else {
+                showView('login');
             }
         }
+    } catch (err) {
+        setLoadingText('❌ Servidor não encontrado. Verifique a URL do backend.');
+        showBackendInput();
+    }
+});
 
-        async function selectChat(id, name) {
-            activeChatId = id;
-            document.querySelector("#chat-header").classList.remove("hidden");
-            document.querySelector("#input-area").classList.remove("hidden");
-            document.querySelector("#active-chat-name").innerText = name;
-            document.querySelector("#active-chat-id").innerText = id;
-            
-            try {
-                const res = await fetch(`${BACKEND_URL}/api/chats/${encodeURIComponent(id)}/messages`);
-                const msgs = await res.json();
-                const container = document.querySelector("#messages-container");
-                container.innerHTML = "";
-                msgs.forEach(renderMessage);
-                loadChatList(); // Atualiza destaque na lista
-            } catch(e) { console.error("Erro ao carregar mensagens", e); }
+function setLoadingText(t) {
+    document.getElementById('loading-text').textContent = t;
+}
+
+function showBackendInput() {
+    const el = document.getElementById('loading-text');
+    el.innerHTML = `
+        <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;max-width:380px">
+            <div style="color:#c0392b;font-weight:600">❌ Servidor não encontrado</div>
+            <p style="font-size:13px;color:#54656f">Configure a URL do backend (Railway):</p>
+            <input id="backend-url-input" type="url" value="${BACKEND_URL}"
+                style="width:100%;padding:10px 14px;border:2px solid #e9edef;border-radius:10px;font-size:14px;outline:none"
+                placeholder="https://seu-app.railway.app" />
+            <button onclick="saveBackendUrl()" style="padding:10px 24px;background:#25d366;color:white;border-radius:10px;font-weight:700;border:none;cursor:pointer">Tentar Conectar</button>
+        </div>`;
+}
+
+function saveBackendUrl() {
+    const url = document.getElementById('backend-url-input').value.trim().replace(/\/$/, '');
+    localStorage.setItem('zaptor_backend_url', url);
+    location.reload();
+}
+
+async function fetchQR() {
+    try {
+        const r = await fetch(`${BACKEND_URL}/api/qr`);
+        const d = await r.json();
+        if (d.qr) showQRImage(d.qr);
+    } catch (e) {}
+}
+
+function showQRImage(dataUrl) {
+    document.getElementById('qr-waiting').classList.add('hidden');
+    const img = document.getElementById('qr-image');
+    img.src = dataUrl;
+    img.classList.remove('hidden');
+}
+
+// ── Socket.io ────────────────────────────────────────────────
+function initSocket() {
+    state.socket = io(BACKEND_URL, { transports: ['websocket', 'polling'] });
+
+    state.socket.on('connect', () => console.log('[Socket] Conectado'));
+    state.socket.on('disconnect', () => console.log('[Socket] Desconectado'));
+
+    state.socket.on('whatsapp_status', (data) => {
+        state.isReady = data.ready;
+        updateConnectionBar();
+        if (data.ready) {
+            // WhatsApp ficou pronto
+            if (document.getElementById('view-qr').classList.contains('active')) {
+                updateQRStatus('connected');
+                setTimeout(() => {
+                    if (state.user) enterChat();
+                    else showView('login');
+                }, 1500);
+            }
+            if (state.user) fetchChats();
+        } else {
+            // WhatsApp desconectou
+            if (document.getElementById('view-chat').classList.contains('active')) {
+                updateConnectionBar();
+            }
+        }
+    });
+
+    state.socket.on('whatsapp_qr', (data) => {
+        if (!document.getElementById('view-qr').classList.contains('active')) {
+            showView('qr');
+        }
+        showQRImage(data.qr);
+        updateQRStatus('waiting');
+    });
+
+    state.socket.on('whatsapp_authenticated', () => {
+        updateQRStatus('authenticated');
+    });
+
+    state.socket.on('whatsapp_loading', (data) => {
+        const badge = document.getElementById('qr-status-badge');
+        if (badge) badge.innerHTML = `<span class="dot yellow"></span><span>Carregando: ${data.percent}%</span>`;
+    });
+
+    state.socket.on('whatsapp_message', (msg) => {
+        // Atualiza mensagens se a conversa está aberta
+        if (state.activeChat && (
+            msg.chatId === state.activeChat.id ||
+            msg.from === state.activeChat.id ||
+            msg.to === state.activeChat.id
+        )) {
+            appendMessage(msg);
         }
 
-        function renderMessage(msg) {
-            const container = document.querySelector("#messages-container");
-            const div = document.createElement("div");
-            div.className = `flex ${msg.fromMe ? 'justify-end' : 'justify-start'}`;
-            div.innerHTML = `
-                <div class="${msg.fromMe ? 'bg-[#dcf8c6]' : 'bg-white'} p-2.5 rounded-2xl shadow-sm max-w-[85%] border border-black/5">
-                    <p class="text-[14px] text-gray-800">${msg.body}</p>
-                    <p class="text-[9px] text-gray-400 text-right mt-1">${new Date(msg.timestamp * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
+        // Notificação de nova mensagem recebida
+        if (!msg.fromMe) {
+            const chat = state.chats.find(c => c.id === msg.chatId || c.id === msg.from);
+            const chatName = chat?.name || 'Nova mensagem';
+            const preview = msg.body ? msg.body.substring(0, 60) : '📎 Arquivo';
+
+            // Incrementa badge no título
+            state.unreadCount++;
+            document.title = `(${state.unreadCount}) ZapTor`;
+
+            // Notificação do sistema
+            if (Notification.permission === 'granted') {
+                new Notification(`ZapTor: ${chatName}`, { body: preview, icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/64px-WhatsApp.svg.png' });
+            }
+
+            // Notif in-app se chat não está ativo
+            if (!state.activeChat || state.activeChat.id !== msg.chatId) {
+                playNotifSound();
+                showNotif(chatName, preview);
+            }
+
+            // Atualiza unread na lista
+            setChats(state.chats.map(c =>
+                (c.id === msg.chatId || c.id === msg.from)
+                    ? { ...c, unreadCount: (c.unreadCount || 0) + 1 }
+                    : c
+            ));
+        }
+
+        fetchChats(); // Atualiza ordem/preview
+    });
+
+    state.socket.on('message_error', (data) => {
+        showNotif('Erro ao enviar', data.error, true);
+    });
+
+    state.socket.on('chat_read', () => fetchChats());
+    state.socket.on('chat_unread', () => fetchChats());
+}
+
+function updateQRStatus(status) {
+    const badge = document.getElementById('qr-status-badge');
+    if (!badge) return;
+    if (status === 'connected') {
+        badge.className = 'status-badge connected';
+        badge.innerHTML = '<span class="dot green"></span><span>WhatsApp Conectado! ✓</span>';
+    } else if (status === 'authenticated') {
+        badge.className = 'status-badge loading';
+        badge.innerHTML = '<span class="dot yellow"></span><span>Autenticado! Carregando...</span>';
+    } else {
+        badge.className = 'status-badge loading';
+        badge.innerHTML = '<span class="dot yellow"></span><span>Aguardando escaneio</span>';
+    }
+}
+
+function updateConnectionBar() {
+    const bar = document.getElementById('conn-bar');
+    const text = document.getElementById('conn-text');
+    if (!bar) return;
+    if (state.isReady) {
+        bar.className = 'connection-bar connected';
+        bar.innerHTML = '<span class="dot green"></span><span id="conn-text">WhatsApp Conectado ✓</span>';
+    } else {
+        bar.className = 'connection-bar disconnected';
+        bar.innerHTML = '<span class="dot red"></span><span id="conn-text">WhatsApp Desconectado</span>';
+    }
+}
+
+// ── Login ────────────────────────────────────────────────────
+async function handleLogin(e) {
+    e.preventDefault();
+    const name = document.getElementById('login-name').value.trim();
+    if (!name) return;
+
+    const btn = document.getElementById('login-btn');
+    const errEl = document.getElementById('login-error');
+    btn.disabled = true;
+    btn.querySelector('span').textContent = 'Verificando...';
+    errEl.classList.remove('show');
+
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name }),
+        });
+        const data = await res.json();
+
+        if (data.valid) {
+            state.user = data.user;
+            localStorage.setItem('zaptor_user', JSON.stringify(state.user));
+            // Solicita permissão para notificações
+            if (Notification.permission === 'default') Notification.requestPermission();
+            enterChat();
+        } else {
+            errEl.textContent = data.error || 'Nome não reconhecido. Fale com o administrador.';
+            errEl.classList.add('show');
+        }
+    } catch (err) {
+        errEl.textContent = 'Erro de conexão. Tente novamente.';
+        errEl.classList.add('show');
+    } finally {
+        btn.disabled = false;
+        btn.querySelector('span').textContent = 'Entrar no ZapTor';
+    }
+}
+
+function logout() {
+    state.user = null;
+    state.activeChat = null;
+    state.messages = [];
+    state.chats = [];
+    localStorage.removeItem('zaptor_user');
+    showView('login');
+}
+
+// ── Chat ─────────────────────────────────────────────────────
+function enterChat() {
+    showView('chat');
+    updateConnectionBar();
+
+    // Preenche header da sidebar
+    const avatar = document.getElementById('sidebar-avatar');
+    avatar.textContent = getInitials(state.user.name);
+    avatar.style.background = getAvatarColor(state.user.name);
+    document.getElementById('sidebar-username').textContent = state.user.name;
+    document.getElementById('sidebar-role').textContent =
+        state.user.role === 'admin' ? '🛡 Administrador' : 'Usuário';
+
+    document.getElementById('welcome-sig').innerHTML =
+        `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#25d366" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+         Suas mensagens usarão a assinatura <strong>&nbsp;*${state.user.name}:*</strong>`;
+
+    if (state.isReady) fetchChats();
+}
+
+async function fetchChats() {
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/chats`);
+        const data = await res.json();
+        if (Array.isArray(data)) setChats(data);
+    } catch (e) {}
+}
+
+function setChats(data) {
+    state.chats = data.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    renderChatList();
+}
+
+function setFilter(f) {
+    state.filter = f;
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(`tab-${f === 'all' ? 'all' : f === 'unread' ? 'unread' : 'groups'}`).classList.add('active');
+    renderChatList();
+}
+
+function filterChats() { renderChatList(); }
+
+function renderChatList() {
+    const q = document.getElementById('search-input').value.toLowerCase();
+    let filtered = state.chats.filter(c => {
+        const nameMatch = (c.name || '').toLowerCase().includes(q);
+        if (!nameMatch) return false;
+        if (state.filter === 'unread') return c.unreadCount && c.unreadCount !== 0;
+        if (state.filter === 'groups') return c.isGroup;
+        return true;
+    });
+
+    const list = document.getElementById('chat-list');
+    if (filtered.length === 0) {
+        list.innerHTML = `<div class="empty-list">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="#ccc" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span>${q ? 'Nenhuma conversa encontrada.' : 'Nenhuma conversa disponível.'}</span>
+        </div>`;
+        return;
+    }
+
+    list.innerHTML = filtered.map(chat => {
+        const initials = getInitials(chat.name);
+        const color = getAvatarColor(chat.name);
+        const time = formatTime(chat.timestamp);
+        const isActive = state.activeChat?.id === chat.id;
+        const hasUnread = chat.unreadCount && chat.unreadCount !== 0;
+        const groupIcon = chat.isGroup
+            ? `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="${color}" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>` : '';
+
+        return `<div class="chat-item ${isActive ? 'active' : ''}" onclick="selectChat(${JSON.stringify(chat.id)})">
+            <div class="avatar md" style="background:${color}">${initials}</div>
+            <div class="chat-info">
+                <div class="chat-name">${chat.name || 'Desconhecido'} ${groupIcon}</div>
+                <div class="chat-meta">
+                    <span class="chat-preview">${hasUnread ? '📩 Não lida' : 'Clique para ver'}</span>
+                    <span class="chat-time">${time}</span>
                 </div>
-            `;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
-        }
+            </div>
+            ${hasUnread
+                ? `<div class="unread-badge">${chat.unreadCount > 0 ? chat.unreadCount : '!'}</div>`
+                : `<button class="mark-unread-btn" onclick="markUnread(event,'${chat.id}')" title="Marcar como não lida">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                   </button>`}
+        </div>`;
+    }).join('');
+}
 
-        function showQR(qr) {
-            document.querySelector("#qr-container").classList.remove("hidden");
-            const qrDiv = document.querySelector("#qr-code");
-            qrDiv.innerHTML = "";
-            new QRCode(qrDiv, { text: qr, width: 140, height: 140 });
-        }
+async function selectChat(chatId) {
+    const chat = state.chats.find(c => c.id === chatId);
+    if (!chat) return;
+    state.activeChat = chat;
+    state.messages = [];
 
-        document.querySelector("#message-form").onsubmit = (e) => {
+    // Reset title badge for this chat
+    state.unreadCount = 0;
+    document.title = state.unreadOriginalTitle;
+
+    // Update UI
+    renderChatList();
+    showActiveChatUI(chat);
+
+    // Mark as read
+    fetch(`${BACKEND_URL}/api/chats/${encodeURIComponent(chatId)}/read`, { method: 'POST' }).catch(() => {});
+    setChats(state.chats.map(c => c.id === chatId ? { ...c, unreadCount: 0 } : c));
+
+    // Fetch messages
+    try {
+        document.getElementById('messages-wrap').innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px;color:#8696a0;font-size:14px;padding:20px">
+                <div class="spinner"></div> Carregando mensagens...
+            </div>`;
+        const res = await fetch(`${BACKEND_URL}/api/chats/${encodeURIComponent(chatId)}/messages`);
+        const data = await res.json();
+        if (Array.isArray(data)) {
+            state.messages = data;
+            renderMessages();
+        }
+    } catch (e) {
+        document.getElementById('messages-wrap').innerHTML = '<div style="text-align:center;padding:20px;color:#e74c3c;font-size:14px">Erro ao carregar mensagens.</div>';
+    }
+}
+
+function showActiveChatUI(chat) {
+    document.getElementById('welcome-screen').style.display = 'none';
+    const container = document.getElementById('active-chat-container');
+    container.style.display = 'flex';
+    container.removeAttribute('style');
+    container.style.display = 'flex';
+    container.style.flexDirection = 'column';
+    container.style.flex = '1';
+    container.style.overflow = 'hidden';
+
+    // Header
+    const avatar = document.getElementById('chat-header-avatar');
+    avatar.textContent = getInitials(chat.name);
+    avatar.style.background = getAvatarColor(chat.name);
+    document.getElementById('chat-header-name').textContent = chat.name || 'Desconhecido';
+    document.getElementById('chat-header-sub').textContent = chat.isGroup ? 'Grupo' : 'Contato';
+
+    // Input
+    const ready = state.isReady;
+    document.getElementById('msg-input').disabled = !ready;
+    document.getElementById('attach-btn').disabled = !ready;
+    document.getElementById('send-btn').disabled = !ready;
+
+    // Mobile
+    if (window.innerWidth <= 768) {
+        document.getElementById('chat-area').classList.add('mobile-open');
+        document.getElementById('sidebar').style.display = 'none';
+    }
+}
+
+function closeChat() {
+    state.activeChat = null;
+    document.getElementById('welcome-screen').style.display = '';
+    document.getElementById('active-chat-container').style.display = 'none';
+    document.getElementById('chat-area').classList.remove('mobile-open');
+    document.getElementById('sidebar').style.display = '';
+    renderChatList();
+}
+
+function renderMessages() {
+    const wrap = document.getElementById('messages-wrap');
+    const msgs = state.messages.filter(m =>
+        state.activeChat && (
+            m.chatId === state.activeChat.id ||
+            m.from === state.activeChat.id ||
+            m.to === state.activeChat.id
+        )
+    );
+
+    wrap.innerHTML = msgs.map(msg => buildMsgHTML(msg)).join('');
+    scrollToBottom();
+}
+
+function appendMessage(msg) {
+    const exists = state.messages.find(m => m.id === msg.id);
+    if (exists) {
+        state.messages = state.messages.map(m =>
+            m.id === msg.id ? { ...m, senderName: m.senderName || msg.senderName } : m
+        );
+    } else {
+        state.messages.push(msg);
+    }
+
+    const wrap = document.getElementById('messages-wrap');
+    if (exists) {
+        renderMessages();
+    } else {
+        wrap.insertAdjacentHTML('beforeend', buildMsgHTML(msg));
+        scrollToBottom();
+    }
+}
+
+function buildMsgHTML(msg) {
+    const isOut = msg.fromMe;
+    const senderLabel = msg.senderName
+        ? (msg.senderName === state.user?.name ? 'Você' : msg.senderName)
+        : null;
+
+    let bodyHTML = '';
+    if (msg.type === 'call_log') {
+        bodyHTML = `<div class="msg-call">📞 Chamada de voz/vídeo</div>`;
+    } else if (msg.hasMedia) {
+        bodyHTML = `<div class="msg-media-loading"><div class="mini-spinner"></div> Carregando mídia...</div>`;
+    } else {
+        bodyHTML = `<div class="msg-body">${formatText(msg.body) || '<em style="color:#8696a0">Mensagem vazia</em>'}</div>`;
+    }
+
+    return `<div class="msg-row ${isOut ? 'out' : 'in'}" data-msgid="${msg.id}">
+        <div class="msg-bubble">
+            ${isOut && senderLabel ? `<div class="msg-sender ${senderLabel !== 'Você' ? 'other' : ''}">${senderLabel}</div>` : ''}
+            ${bodyHTML}
+            <div class="msg-time">${formatMsgTime(msg.timestamp)}</div>
+        </div>
+    </div>`;
+}
+
+// Carrega mídias lazy
+const mediaObserver = new IntersectionObserver((entries) => {
+    entries.forEach(async (entry) => {
+        if (!entry.isIntersecting) return;
+        const el = entry.target;
+        const msgId = el.closest('[data-msgid]')?.dataset.msgid;
+        if (!msgId) return;
+        const msg = state.messages.find(m => m.id === msgId);
+        if (!msg?.hasMedia) return;
+        mediaObserver.unobserve(el);
+        try {
+            const res = await fetch(`${BACKEND_URL}/api/messages/${encodeURIComponent(msgId)}/media`);
+            const data = await res.json();
+            if (data.error || !data.data) {
+                el.innerHTML = '<div style="font-size:12px;color:#e74c3c">Mídia indisponível</div>';
+                return;
+            }
+            const src = `data:${data.mimetype};base64,${data.data}`;
+            const type = msg.type;
+            let mediaHTML = '';
+            if (type === 'image') mediaHTML = `<img class="msg-img" src="${src}" alt="Imagem" onclick="window.open('${src}','_blank')" />`;
+            else if (type === 'video') mediaHTML = `<video class="msg-video" src="${src}" controls></video>`;
+            else if (type === 'audio' || type === 'ptt') mediaHTML = `<audio class="msg-audio" src="${src}" controls></audio>`;
+            else mediaHTML = `<a class="msg-file" href="${src}" download="${data.filename||'arquivo'}"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#2563eb" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg><span>${data.filename||'Documento'}</span></a>`;
+            el.innerHTML = mediaHTML + (msg.body ? `<div class="msg-body" style="margin-top:4px">${formatText(msg.body)}</div>` : '');
+        } catch (e) {
+            el.innerHTML = '<div style="font-size:12px;color:#e74c3c">Erro ao carregar mídia</div>';
+        }
+    });
+}, { threshold: 0.1 });
+
+// Observa elementos de loading de mídia
+const msgObserver = new MutationObserver(() => {
+    document.querySelectorAll('.msg-media-loading').forEach(el => {
+        if (!el.dataset.observed) { el.dataset.observed = '1'; mediaObserver.observe(el); }
+    });
+});
+msgObserver.observe(document.getElementById('messages-wrap') || document.body, { childList: true, subtree: true });
+
+function scrollToBottom() {
+    const wrap = document.getElementById('messages-wrap');
+    if (wrap) wrap.scrollTop = wrap.scrollHeight;
+}
+
+// ── Envio de Mensagem ─────────────────────────────────────────
+function handleInputKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function sendMessage() {
+    const input = document.getElementById('msg-input');
+    const text = input.value.trim();
+    if ((!text && !state.selectedFile) || !state.activeChat || !state.socket) return;
+
+    state.socket.emit('send_message', {
+        loginName: state.user.name,
+        chatId: state.activeChat.id,
+        text,
+        fileData: state.selectedFile,
+    });
+
+    input.value = '';
+    clearFile();
+}
+
+function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+        state.selectedFile = { name: file.name, mimetype: file.type, data: reader.result, preview: file.type.startsWith('image/') ? reader.result : null };
+        showFilePreview();
+    };
+    e.target.value = '';
+}
+
+function handlePaste(e) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let item of items) {
+        if (item.type.indexOf('image') !== -1) {
+            const file = item.getAsFile();
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => {
+                state.selectedFile = { name: 'imagem-colada.png', mimetype: file.type, data: reader.result, preview: reader.result };
+                showFilePreview();
+            };
             e.preventDefault();
-            const input = document.querySelector("#msg-input");
-            if(!input.value.trim() || !activeChatId) return;
+            break;
+        }
+    }
+}
 
-            socket.emit('send_message', {
-                loginName: currentUser,
-                chatId: activeChatId,
-                text: input.value
-            });
-            input.value = "";
-        };
-    </script>
+function showFilePreview() {
+    const f = state.selectedFile;
+    const preview = document.getElementById('file-preview');
+    const thumb = document.getElementById('file-preview-thumb');
+    const name = document.getElementById('file-preview-name');
+    preview.classList.remove('hidden');
+    name.textContent = f.name;
+    thumb.innerHTML = f.preview
+        ? `<img src="${f.preview}" class="file-preview-thumb" style="width:40px;height:40px;object-fit:cover;border-radius:6px;" />`
+        : `<div class="file-preview-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg></div>`;
+}
+
+function clearFile() {
+    state.selectedFile = null;
+    document.getElementById('file-preview').classList.add('hidden');
+    document.getElementById('file-input').value = '';
+}
+
+// ── Marcar como não lida ──────────────────────────────────────
+async function markUnread(e, chatId) {
+    e.stopPropagation();
+    setChats(state.chats.map(c => c.id === chatId ? { ...c, unreadCount: -1 } : c));
+    await fetch(`${BACKEND_URL}/api/chats/${encodeURIComponent(chatId)}/unread`, { method: 'POST' }).catch(() => {});
+}
+
+async function markChatUnread() {
+    if (!state.activeChat) return;
+    await markUnread({ stopPropagation: () => {} }, state.activeChat.id);
+}
+
+// ── Painel Admin ──────────────────────────────────────────────
+function openAdmin() {
+    showView('admin');
+    if (state.adminAuthed) {
+        renderAdminPanel();
+    } else {
+        renderAdminLogin();
+    }
+}
+
+function closeAdmin() {
+    const prev = state.user ? 'chat' : (state.isReady ? 'login' : 'qr');
+    showView(prev);
+}
+
+function handleAdminBackdrop(e) {
+    if (e.target === document.getElementById('view-admin')) closeAdmin();
+}
+
+function renderAdminLogin() {
+    document.getElementById('admin-body').innerHTML = `
+        <div class="admin-login-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="#25d366" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <h3>Acesso de Administrador</h3>
+            <p style="font-size:13px;color:#8696a0;text-align:center">Digite a chave de administrador configurada no servidor.</p>
+            <input id="admin-key-input" type="password" placeholder="Chave de admin (ADMIN_KEY)" />
+            <div class="error-msg" id="admin-key-error"></div>
+            <button class="btn-primary" style="width:100%" onclick="submitAdminKey()">Entrar</button>
+        </div>`;
+    document.getElementById('admin-key-input').addEventListener('keydown', e => { if (e.key === 'Enter') submitAdminKey(); });
+}
+
+async function submitAdminKey() {
+    const key = document.getElementById('admin-key-input').value;
+    const errEl = document.getElementById('admin-key-error');
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/admin/users`, { headers: { 'x-admin-key': key } });
+        if (res.status === 401) {
+            errEl.textContent = 'Chave incorreta.'; errEl.classList.add('show'); return;
+        }
+        state.adminKey = key;
+        state.adminAuthed = true;
+        renderAdminPanel();
+    } catch (e) {
+        errEl.textContent = 'Erro de conexão.'; errEl.classList.add('show');
+    }
+}
+
+async function renderAdminPanel() {
+    const body = document.getElementById('admin-body');
+    body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:30px"><div class="spinner"></div></div>`;
+
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/admin/users`, { headers: { 'x-admin-key': state.adminKey } });
+        const users = await res.json();
+
+        // WhatsApp status
+        const statusRes = await fetch(`${BACKEND_URL}/api/status`);
+        const statusData = await statusRes.json();
+
+        body.innerHTML = `
+            <div>
+                <div class="admin-section-title">Status do WhatsApp</div>
+                <div class="admin-whatsapp-info">
+                    <div class="label">Conexão</div>
+                    <div class="value" style="color:${statusData.ready ? '#1a7a3f' : '#c0392b'}">
+                        ${statusData.ready ? '✅ Conectado e pronto' : '❌ Desconectado'}
+                    </div>
+                    ${!statusData.ready && statusData.hasQR ? `
+                    <div class="label" style="margin-top:8px">QR Code disponível:</div>
+                    <button class="btn-add" onclick="document.getElementById('view-admin').classList.remove('active');showView('qr')" style="margin-top:6px;display:inline-block">Ver QR Code para escanear</button>` : ''}
+                </div>
+            </div>
+            <div>
+                <div class="admin-section-title">Adicionar Usuário</div>
+                <div class="admin-add-form">
+                    <input id="new-user-name" type="text" placeholder="Nome do usuário (ex: Maria - RH)" />
+                    <button class="btn-add" onclick="addUser()">+ Adicionar</button>
+                </div>
+                <div class="error-msg" id="add-user-error" style="margin-top:8px"></div>
+            </div>
+            <div>
+                <div class="admin-section-title">Usuários Cadastrados (${users.length})</div>
+                <div class="user-list" id="user-list">
+                    ${users.length === 0
+                        ? '<div style="color:#8696a0;font-size:14px;text-align:center;padding:20px">Nenhum usuário cadastrado.</div>'
+                        : users.map(u => `
+                            <div class="user-item ${!u.active ? 'user-item-inactive' : ''}">
+                                <div class="avatar sm" style="background:${getAvatarColor(u.name)}">${getInitials(u.name)}</div>
+                                <div class="user-item-name">${u.name}</div>
+                                <span class="user-item-role ${u.role === 'admin' ? 'role-admin' : 'role-user'}">${u.role === 'admin' ? 'Admin' : 'Usuário'}</span>
+                                <button class="btn-toggle ${u.active ? 'disable' : 'enable'}" onclick="toggleUser('${u.id}', ${!u.active})">
+                                    ${u.active ? 'Desativar' : 'Ativar'}
+                                </button>
+                                <button class="btn-delete" onclick="deleteUser('${u.id}','${u.name}')" title="Excluir">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                                </button>
+                            </div>`).join('')}
+                </div>
+            </div>
+            <div style="font-size:12px;color:#8696a0;padding-top:8px;border-top:1px solid #e9edef">
+                <strong>Dica:</strong> Apenas nomes cadastrados e ativos podem fazer login no ZapTor.
+            </div>`;
+
+        document.getElementById('new-user-name').addEventListener('keydown', e => { if (e.key === 'Enter') addUser(); });
+    } catch (e) {
+        body.innerHTML = `<div style="color:#c0392b;padding:20px">Erro ao carregar painel: ${e.message}</div>`;
+    }
+}
+
+async function addUser() {
+    const nameEl = document.getElementById('new-user-name');
+    const errEl = document.getElementById('add-user-error');
+    const name = nameEl.value.trim();
+    if (!name) return;
+
+    errEl.classList.remove('show');
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/admin/users`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-admin-key': state.adminKey },
+            body: JSON.stringify({ name }),
+        });
+        const data = await res.json();
+        if (data.error) { errEl.textContent = data.error; errEl.classList.add('show'); return; }
+        nameEl.value = '';
+        showNotif('Usuário adicionado', `${name} pode agora fazer login.`);
+        renderAdminPanel();
+    } catch (e) {
+        errEl.textContent = 'Erro ao adicionar.'; errEl.classList.add('show');
+    }
+}
+
+async function toggleUser(id, active) {
+    await fetch(`${BACKEND_URL}/api/admin/users/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': state.adminKey },
+        body: JSON.stringify({ active }),
+    });
+    renderAdminPanel();
+}
+
+async function deleteUser(id, name) {
+    if (!confirm(`Excluir o usuário "${name}"? Esta ação não pode ser desfeita.`)) return;
+    await fetch(`${BACKEND_URL}/api/admin/users/${id}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-key': state.adminKey },
+    });
+    showNotif('Usuário removido', `${name} foi removido do sistema.`);
+    renderAdminPanel();
+}
+
+// ── Foco na aba: limpar badge de mensagens ────────────────────
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) { state.unreadCount = 0; document.title = state.unreadOriginalTitle; }
+});
+</script>
 </body>
 </html>
