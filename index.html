@@ -120,10 +120,22 @@
         }
 
         async function loadChatList() {
+            console.log("Tentando carregar lista de chats...");
             try {
                 const res = await fetch(`${BACKEND_URL}/api/chats`);
+                if (!res.ok) {
+                    const errData = await res.json();
+                    console.error("Erro do servidor ao buscar chats:", errData);
+                    document.querySelector("#chat-list").innerHTML = `<p class="p-4 text-xs text-red-500">Erro: ${errData.error || 'Falha no servidor'}</p>`;
+                    return;
+                }
                 const chats = await res.json();
+                console.log("Chats recebidos:", chats.length);
                 const list = document.querySelector("#chat-list");
+                if (chats.length === 0) {
+                    list.innerHTML = `<p class="p-8 text-center text-gray-400 text-xs">Nenhuma conversa encontrada ou WhatsApp ainda carregando...</p>`;
+                    return;
+                }
                 list.innerHTML = chats.map(chat => `
                     <div onclick="selectChat('${chat.id}', '${chat.name}')" class="p-4 border-b hover:bg-white cursor-pointer transition-all ${activeChatId === chat.id ? 'bg-white border-l-4 border-l-green-500' : ''}">
                         <div class="flex justify-between items-center">
@@ -133,7 +145,10 @@
                         <p class="text-[10px] text-gray-400 truncate mt-1">${chat.id}</p>
                     </div>
                 `).join('');
-            } catch(e) { console.error("Erro ao carregar chats", e); }
+            } catch(e) { 
+                console.error("Erro de rede ao carregar chats:", e); 
+                document.querySelector("#chat-list").innerHTML = `<p class="p-4 text-xs text-red-500">Erro de conexão. Verifique se o servidor está online.</p>`;
+            }
         }
 
         async function selectChat(id, name) {
