@@ -56,27 +56,32 @@ client.on('ready', () => {
 
 // Endpoint para buscar a lista de conversas
 app.get('/api/chats', async (req, res) => {
+    console.log('Recebida requisição para listar chats. Status do cliente:', isReady);
     if (!isReady) return res.status(503).json({ error: 'WhatsApp não está pronto' });
     try {
         const chats = await client.getChats();
-        const simplified = chats.slice(0, 20).map(chat => ({
+        console.log(`Sucesso! Encontrados ${chats.length} chats.`);
+        const simplified = chats.slice(0, 25).map(chat => ({
             id: chat.id._serialized,
-            name: chat.name,
+            name: chat.name || chat.id.user,
             unreadCount: chat.unreadCount,
             timestamp: chat.timestamp
         }));
         res.json(simplified);
     } catch (err) {
+        console.error('Erro ao buscar chats:', err);
         res.status(500).json({ error: err.toString() });
     }
 });
 
 // Endpoint para buscar mensagens de um chat específico
 app.get('/api/chats/:chatId/messages', async (req, res) => {
+    console.log(`Buscando mensagens para o chat: ${req.params.chatId}`);
     if (!isReady) return res.status(503).json({ error: 'WhatsApp não está pronto' });
     try {
         const chat = await client.getChatById(req.params.chatId);
-        const messages = await chat.fetchMessages({ limit: 30 });
+        const messages = await chat.fetchMessages({ limit: 40 });
+        console.log(`Sucesso! Carregadas ${messages.length} mensagens.`);
         res.json(messages.map(msg => ({
             id: msg.id._serialized,
             body: msg.body,
@@ -84,11 +89,13 @@ app.get('/api/chats/:chatId/messages', async (req, res) => {
             timestamp: msg.timestamp
         })));
     } catch (err) {
+        console.error(`Erro ao buscar mensagens do chat ${req.params.chatId}:`, err);
         res.status(500).json({ error: err.toString() });
     }
 });
 
 client.on('message_create', async (msg) => {
+    console.log(`Nova mensagem detectada: ${msg.id._serialized} de ${msg.from}`);
     io.emit('whatsapp_message', {
         id: msg.id._serialized,
         chatId: msg.id.remote,
