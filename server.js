@@ -4,32 +4,18 @@ const qrcode = require('qrcode-terminal');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// Middleware para garantir CORS em todas as requisições
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
-    if ('OPTIONS' === req.method) {
-        res.sendStatus(200);
-    } else {
-        next();
-    }
-});
+// Configuração do Supabase
+const supabaseUrl = 'https://vxthbpdqaumvdwfsgdqi.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4dGhicGRxYXVtdmR3ZnNnZHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTUzNzIsImV4cCI6MjA5NTI5MTM3Mn0.qQPdWS-pMPPdvtkfDwkW7lbbn8eYMfNqMFHvNwvsL-A';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-const server = http.createServer(app);
-const io = new Server(server, { 
-    cors: { 
-        origin: "*",
-        methods: ["GET", "POST"]
-    } 
-});
-
-// Middleware para garantir CORS em todas as requisições
+// Middleware CORS
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
@@ -40,8 +26,16 @@ app.use((req, res, next) => {
     next();
 });
 
+const server = http.createServer(app);
+const io = new Server(server, { 
+    cors: { 
+        origin: "*",
+        methods: ["GET", "POST"]
+    } 
+});
+
 const client = new Client({
-    authStrategy: new LocalAuth(),
+    authStrategy: new LocalAuth(), // Futuramente implementaremos o RemoteAuth com Supabase Storage
     webVersionCache: {
         type: 'remote',
         remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1018.665-alpha.html',
@@ -79,11 +73,9 @@ client.on('ready', () => {
 
 // Endpoint para buscar a lista de conversas
 app.get('/api/chats', async (req, res) => {
-    console.log('Recebida requisição para listar chats. Status do cliente:', isReady);
     if (!isReady) return res.status(503).json({ error: 'WhatsApp não está pronto' });
     try {
         const chats = await client.getChats();
-        console.log(`Sucesso! Encontrados ${chats.length} chats.`);
         const simplified = chats.slice(0, 25).map(chat => ({
             id: chat.id._serialized,
             name: chat.name || chat.id.user,
@@ -92,19 +84,16 @@ app.get('/api/chats', async (req, res) => {
         }));
         res.json(simplified);
     } catch (err) {
-        console.error('Erro ao buscar chats:', err);
         res.status(500).json({ error: err.toString() });
     }
 });
 
 // Endpoint para buscar mensagens de um chat específico
 app.get('/api/chats/:chatId/messages', async (req, res) => {
-    console.log(`Buscando mensagens para o chat: ${req.params.chatId}`);
     if (!isReady) return res.status(503).json({ error: 'WhatsApp não está pronto' });
     try {
         const chat = await client.getChatById(req.params.chatId);
         const messages = await chat.fetchMessages({ limit: 40 });
-        console.log(`Sucesso! Carregadas ${messages.length} mensagens.`);
         res.json(messages.map(msg => ({
             id: msg.id._serialized,
             body: msg.body,
@@ -112,13 +101,11 @@ app.get('/api/chats/:chatId/messages', async (req, res) => {
             timestamp: msg.timestamp
         })));
     } catch (err) {
-        console.error(`Erro ao buscar mensagens do chat ${req.params.chatId}:`, err);
         res.status(500).json({ error: err.toString() });
     }
 });
 
 client.on('message_create', async (msg) => {
-    console.log(`Nova mensagem detectada: ${msg.id._serialized} de ${msg.from}`);
     io.emit('whatsapp_message', {
         id: msg.id._serialized,
         chatId: msg.id.remote,
@@ -127,12 +114,23 @@ client.on('message_create', async (msg) => {
         timestamp: msg.timestamp,
         author: msg.author || msg.from
     });
+
+    // Auditoria opcional no Supabase (Exemplo)
+    try {
+        await supabase.from('logs_zaptor').insert([{
+            chat_id: msg.id.remote,
+            body: msg.body,
+            from_me: msg.fromMe,
+            timestamp: new Date().toISOString()
+        }]);
+    } catch (e) {
+        // Silencioso se a tabela não existir ainda
+    }
 });
 
 app.get('/health', (req, res) => res.send('ZapTor Vivo!'));
 
 io.on('connection', (socket) => {
-    console.log('Cliente conectado ao ZapTor');
     socket.emit('whatsapp_status', { ready: isReady, qr: qrCodeData });
 
     socket.on('send_message', async (data) => {
@@ -141,7 +139,6 @@ io.on('connection', (socket) => {
         const formattedText = `*${loginName}:* ${text}`;
         try {
             await client.sendMessage(chatId, formattedText);
-            console.log(`Mensagem enviada por ${loginName}`);
         } catch (err) {
             console.error('Erro ao enviar mensagem:', err);
         }
