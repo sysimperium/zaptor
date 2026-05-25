@@ -937,11 +937,25 @@ function enterChat() {
 }
 
 async function fetchChats() {
+    const list = document.getElementById('chat-list');
     try {
         const res = await fetch(`${BACKEND_URL}/api/chats`);
         const data = await res.json();
-        if (Array.isArray(data)) setChats(data);
-    } catch (e) {}
+        if (data && data.error) {
+            throw new Error(data.error);
+        }
+        if (Array.isArray(data)) {
+            setChats(data);
+        } else {
+            throw new Error('Resposta inválida do servidor.');
+        }
+    } catch (e) {
+        console.error('[Chats] Erro ao buscar conversas:', e.message);
+        list.innerHTML = `<div class="empty-list" style="color:#c0392b">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="#e74c3c" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>Erro ao carregar: ${e.message}</span>
+        </div>`;
+    }
 }
 
 function setChats(data) {
