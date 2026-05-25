@@ -22,8 +22,9 @@ const ROOT_KEY = process.env.ROOT_KEY || 'root123'; // Chave para acesso global
 // ── Supabase ──────────────────────────────────────────────────
 let supabase = null;
 if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
-    supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-    console.log('[Supabase] Conectado.');
+    const cleanUrl = SUPABASE_URL.trim().replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
+    supabase = createClient(cleanUrl, SUPABASE_SERVICE_KEY);
+    console.log('[Supabase] Conectado com URL:', cleanUrl);
 } else {
     console.warn('[Supabase] AVISO: Variáveis de ambiente não configuradas. Rodando sem persistência.');
 }
