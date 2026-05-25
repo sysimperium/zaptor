@@ -331,10 +331,13 @@ app.get('/api/messages/:msgId/media', async (req, res) => {
 app.get('/api/admin/users', requireAdmin, async (req, res) => {
     if (!supabase) return res.json([]);
     const { data: company } = await supabase.from('companies').select('id').eq('slug', COMPANY_SLUG).single();
+    if (!company) {
+        return res.status(404).json({ error: 'Empresa não encontrada no banco. Verifique o COMPANY_SLUG.' });
+    }
     const { data, error } = await supabase
         .from('zaptor_users')
         .select('id, name, role, active, created_at')
-        .eq('company_id', company?.id)
+        .eq('company_id', company.id)
         .order('name');
     if (error) return res.status(500).json({ error: error.message });
     res.json(data || []);
@@ -346,9 +349,12 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
     if (!name?.trim()) return res.status(400).json({ error: 'Nome obrigatório.' });
 
     const { data: company } = await supabase.from('companies').select('id').eq('slug', COMPANY_SLUG).single();
+    if (!company) {
+        return res.status(404).json({ error: 'Empresa não encontrada no banco. Verifique o COMPANY_SLUG.' });
+    }
     const { data, error } = await supabase
         .from('zaptor_users')
-        .insert({ name: name.trim(), company_id: company?.id, role: 'user', active: true })
+        .insert({ name: name.trim(), company_id: company.id, role: 'user', active: true })
         .select()
         .single();
     if (error) return res.status(409).json({ error: 'Usuário já existe ou erro: ' + error.message });
