@@ -531,9 +531,9 @@
 // ║  Edite BACKEND_URL abaixo com a URL do seu Railway       ║
 // ╚══════════════════════════════════════════════════════════╝
 
-const BACKEND_URL = window.ZAPTOR_BACKEND_URL
-    || localStorage.getItem('zaptor_backend_url')
-    || `${window.location.protocol}//${window.location.hostname}:3001`;
+const BACKEND_URL = localStorage.getItem('zaptor_backend_url')
+    || window.ZAPTOR_BACKEND_URL
+    || 'https://zaptor-production.up.railway.app';
 
 // ── Estado da Aplicação ──────────────────────────────────────
 const state = {

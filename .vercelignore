@@ -1,0 +1,8 @@
+server.js
+package.json
+package-lock.json
+Dockerfile
+supabase_schema.sql
+.env.example
+RELATORIO_TECNICO_ZAPTOR.md
+DEPLOY.md
