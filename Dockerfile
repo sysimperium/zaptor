@@ -1,11 +1,8 @@
-FROM ghcr.io/puppeteer/puppeteer:21.5.0
+FROM node:20-slim
 
-USER root
-
-# Remove o repositório que está dando erro de assinatura no Render
-RUN rm -rf /etc/apt/sources.list.d/google-chrome.list
-
+# Instala o Chromium e as dependências necessárias para o Puppeteer
 RUN apt-get update && apt-get install -y \
+    chromium \
     libxshmfence1 \
     libglu1 \
     && rm -rf /var/lib/apt/lists/*
@@ -15,9 +12,9 @@ COPY package*.json ./
 RUN npm install
 COPY . .
 
-# Variáveis para otimizar memória no Render Free
+# Variáveis para o Puppeteer usar o Chromium instalado pelo apt-get
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 EXPOSE 3001
 
