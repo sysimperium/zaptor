@@ -1,6 +1,10 @@
 FROM ghcr.io/puppeteer/puppeteer:21.5.0
 
 USER root
+
+# Remove o repositório que está dando erro de assinatura no Render
+RUN rm -rf /etc/apt/sources.list.d/google-chrome.list
+
 RUN apt-get update && apt-get install -y \
     libxshmfence1 \
     libglu1 \
