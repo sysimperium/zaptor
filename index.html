@@ -532,7 +532,7 @@
 // ╚══════════════════════════════════════════════════════════╝
 
 let savedUrl = localStorage.getItem('zaptor_backend_url');
-if (savedUrl && (savedUrl.includes('localhost') || savedUrl === 'null' || savedUrl === 'undefined')) {
+if (savedUrl && (savedUrl.includes('localhost') || savedUrl === 'null' || savedUrl === 'undefined' || savedUrl.endsWith('.ap') || !savedUrl.startsWith('http'))) {
     localStorage.removeItem('zaptor_backend_url');
     savedUrl = null;
 }
@@ -693,7 +693,15 @@ function showBackendInput() {
 }
 
 function saveBackendUrl() {
-    const url = document.getElementById('backend-url-input').value.trim().replace(/\/$/, '');
+    let url = document.getElementById('backend-url-input').value.trim().replace(/\/$/, '');
+    if (url) {
+        if (!/^https?:\/\//i.test(url)) {
+            url = 'https://' + url;
+        }
+        if (url.endsWith('.ap')) {
+            url = url + 'p';
+        }
+    }
     localStorage.setItem('zaptor_backend_url', url);
     location.reload();
 }
