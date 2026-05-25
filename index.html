@@ -531,7 +531,12 @@
 // ║  Edite BACKEND_URL abaixo com a URL do seu Railway       ║
 // ╚══════════════════════════════════════════════════════════╝
 
-const BACKEND_URL = localStorage.getItem('zaptor_backend_url')
+let savedUrl = localStorage.getItem('zaptor_backend_url');
+if (savedUrl && (savedUrl.includes('localhost') || savedUrl === 'null' || savedUrl === 'undefined')) {
+    localStorage.removeItem('zaptor_backend_url');
+    savedUrl = null;
+}
+const BACKEND_URL = savedUrl
     || window.ZAPTOR_BACKEND_URL
     || 'https://zaptor-production.up.railway.app';
 
