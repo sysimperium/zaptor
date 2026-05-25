@@ -17,6 +17,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 const ADMIN_KEY = process.env.ADMIN_KEY || 'admin123'; // Troque em produção!
 const COMPANY_SLUG = process.env.COMPANY_SLUG || 'minha-empresa';
+const ROOT_KEY = process.env.ROOT_KEY || 'root123'; // Chave para acesso global
 
 // ── Supabase ──────────────────────────────────────────────────
 let supabase = null;
@@ -162,6 +163,15 @@ const requireAdmin = (req, res, next) => {
     const key = req.headers['x-admin-key'];
     if (key !== ADMIN_KEY) {
         return res.status(401).json({ error: 'Chave de administrador inválida.' });
+    }
+    next();
+};
+
+// ── Middleware de Root ───────────────────────────────────────
+const requireRoot = (req, res, next) => {
+    const key = req.headers['x-root-key'];
+    if (key !== ROOT_KEY) {
+        return res.status(401).json({ error: 'Chave de root inválida.' });
     }
     next();
 };
@@ -379,6 +389,93 @@ app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
     const { error } = await supabase.from('zaptor_users').delete().eq('id', req.params.id);
     if (error) return res.status(500).json({ error: error.message });
     res.json({ success: true });
+});
+
+// ── API ROOT: Gerenciar Empresas e Admins Globais ──────────────
+app.post('/api/root/login', (req, res) => {
+    const { key } = req.body;
+    if (key === ROOT_KEY) {
+        return res.json({ valid: true });
+    }
+    res.status(401).json({ valid: false, error: 'Chave de root incorreta.' });
+});
+
+app.get('/api/root/companies', requireRoot, async (req, res) => {
+    if (!supabase) return res.json([]);
+    try {
+        const { data, error } = await supabase
+            .from('companies')
+            .select('*')
+            .order('name');
+        if (error) return res.status(500).json({ error: error.message });
+        res.json(data || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/root/companies', requireRoot, async (req, res) => {
+    if (!supabase) return res.status(503).json({ error: 'Supabase não configurado.' });
+    const { name, slug, adminName } = req.body;
+    if (!name?.trim() || !slug?.trim() || !adminName?.trim()) {
+        return res.status(400).json({ error: 'Nome, slug e nome do administrador são obrigatórios.' });
+    }
+
+    try {
+        // 1. Cria a empresa
+        const { data: company, error: cErr } = await supabase
+            .from('companies')
+            .insert({ name: name.trim(), slug: slug.trim().toLowerCase(), active: true })
+            .select()
+            .single();
+        if (cErr) return res.status(409).json({ error: 'Erro ao criar empresa (slug em uso?): ' + cErr.message });
+
+        // 2. Cria o usuário admin para esta empresa
+        const { error: uErr } = await supabase
+            .from('zaptor_users')
+            .insert({ company_id: company.id, name: adminName.trim(), role: 'admin', active: true });
+
+        if (uErr) {
+            // Rollback manual deletando a empresa
+            await supabase.from('companies').delete().eq('id', company.id);
+            return res.status(500).json({ error: 'Erro ao criar administrador: ' + uErr.message });
+        }
+
+        res.json({ success: true, company });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.patch('/api/root/companies/:id', requireRoot, async (req, res) => {
+    if (!supabase) return res.status(503).json({ error: 'Supabase não configurado.' });
+    const { active } = req.body;
+    try {
+        const { data, error } = await supabase
+            .from('companies')
+            .update({ active })
+            .eq('id', req.params.id)
+            .select()
+            .single();
+        if (error) return res.status(500).json({ error: error.message });
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/root/companies/:id', requireRoot, async (req, res) => {
+    if (!supabase) return res.status(503).json({ error: 'Supabase não configurado.' });
+    try {
+        const { error } = await supabase
+            .from('companies')
+            .delete()
+            .eq('id', req.params.id);
+        if (error) return res.status(500).json({ error: error.message });
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // ── Socket.io: Envio de Mensagens em Tempo Real ───────────────

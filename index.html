@@ -252,7 +252,7 @@
         .welcome-sig { margin-top: 20px; font-size: 13px; color: var(--text-secondary); background: white; padding: 8px 16px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
 
         /* ── Admin Panel ──────────────────────────────── */
-        #view-admin { background: rgba(0,0,0,.6); align-items: center; justify-content: center; z-index: 100; }
+        #view-admin, #view-root { background: rgba(0,0,0,.6); align-items: center; justify-content: center; z-index: 100; }
         .admin-modal {
             background: white; border-radius: 20px; width: 100%; max-width: 540px; max-height: 85vh;
             display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 16px 64px rgba(0,0,0,.25);
@@ -389,6 +389,8 @@
         </form>
         <div class="login-footer">
             Administrador? <span class="link-admin" onclick="openAdmin()">Acessar painel admin</span>
+            <span style="margin: 0 8px; color: #cbd5e1">|</span>
+            Dono? <span class="link-admin" onclick="openRoot()">Acesso Root</span>
         </div>
     </div>
 </div>
@@ -522,6 +524,26 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════
+     VIEW: ROOT PANEL
+═══════════════════════════════════════════════ -->
+<div id="view-root" class="view" onclick="handleRootBackdrop(event)">
+    <div class="admin-modal" id="root-modal">
+        <div class="admin-header">
+            <h2>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Painel Root (Multi-Empresa)
+            </h2>
+            <button class="icon-btn" onclick="closeRoot()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="admin-body" id="root-body">
+            <!-- Preenchido por JS -->
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
      SCRIPTS
 ═══════════════════════════════════════════════ -->
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
@@ -553,6 +575,8 @@ const state = {
     soundEnabled: true,
     adminKey: null,
     adminAuthed: false,
+    rootKey: null,
+    rootAuthed: false,
     unreadOriginalTitle: document.title,
     unreadCount: 0,
 };
@@ -1253,6 +1277,181 @@ function closeAdmin() {
 
 function handleAdminBackdrop(e) {
     if (e.target === document.getElementById('view-admin')) closeAdmin();
+}
+
+// ── Painel Root ──────────────────────────────────────────────
+function openRoot() {
+    state.rootAuthed = false;
+    state.rootKey = null;
+    document.getElementById('view-root').classList.add('active');
+    renderRootLogin();
+}
+
+function closeRoot() {
+    document.getElementById('view-root').classList.remove('active');
+}
+
+function handleRootBackdrop(e) {
+    if (e.target === document.getElementById('view-root')) closeRoot();
+}
+
+function renderRootLogin() {
+    document.getElementById('root-body').innerHTML = `
+        <div class="admin-login-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="#25d366" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <h3>Acesso Root</h3>
+            <p style="font-size:13px;color:#8696a0;text-align:center">Digite a chave Root do sistema para gerenciar as empresas.</p>
+            <input id="root-key-input" type="password" placeholder="Chave de Root (ROOT_KEY)" />
+            <div class="error-msg" id="root-key-error"></div>
+            <button class="btn-primary" style="width:100%" onclick="submitRootKey()">Entrar</button>
+        </div>`;
+    document.getElementById('root-key-input').addEventListener('keydown', e => { if (e.key === 'Enter') submitRootKey(); });
+}
+
+async function submitRootKey() {
+    const key = document.getElementById('root-key-input').value;
+    const errEl = document.getElementById('root-key-error');
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/root/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key })
+        });
+        if (res.status === 401) {
+            errEl.textContent = 'Chave incorreta.'; errEl.classList.add('show'); return;
+        }
+        state.rootKey = key;
+        state.rootAuthed = true;
+        renderRootPanel();
+    } catch (e) {
+        errEl.textContent = 'Erro de conexão.'; errEl.classList.add('show');
+    }
+}
+
+async function renderRootPanel() {
+    const body = document.getElementById('root-body');
+    body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:30px"><div class="spinner"></div></div>`;
+
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/root/companies`, { headers: { 'x-root-key': state.rootKey } });
+        const companies = await res.json();
+        if (companies && companies.error) {
+            throw new Error(companies.error);
+        }
+        if (!Array.isArray(companies)) {
+            throw new Error('Resposta inválida do servidor.');
+        }
+
+        body.innerHTML = `
+            <div>
+                <div class="admin-section-title">Cadastrar Nova Empresa</div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                    <input id="new-company-name" type="text" placeholder="Nome da Empresa (ex: SysImperium)" style="width:100%;padding:10px;border:1px solid #e9edef;border-radius:10px" />
+                    <input id="new-company-slug" type="text" placeholder="Slug da Empresa (ex: sysimperium)" style="width:100%;padding:10px;border:1px solid #e9edef;border-radius:10px" />
+                    <input id="new-company-admin" type="text" placeholder="Nome do Admin padrão (ex: Admin)" value="Admin" style="width:100%;padding:10px;border:1px solid #e9edef;border-radius:10px" />
+                    <button class="btn-primary" onclick="addCompany()" style="align-self:flex-end">+ Criar Empresa</button>
+                </div>
+                <div class="error-msg" id="add-company-error" style="margin-top:8px"></div>
+            </div>
+            <div>
+                <div class="admin-section-title">Empresas Cadastradas (${companies.length})</div>
+                <div class="user-list" id="company-list">
+                    ${companies.length === 0
+                        ? '<div style="color:#8696a0;font-size:14px;text-align:center;padding:20px">Nenhuma empresa cadastrada.</div>'
+                        : companies.map(c => `
+                            <div class="user-item ${!c.active ? 'user-item-inactive' : ''}" style="gap: 12px; align-items: center">
+                                <div style="flex:1">
+                                    <div style="font-weight:600;font-size:14px">${c.name}</div>
+                                    <div style="font-size:12px;color:#8696a0">Slug: ${c.slug}</div>
+                                </div>
+                                <span class="user-item-role ${c.active ? 'role-admin' : 'role-user'}" style="margin-right:0">${c.active ? 'Ativa' : 'Inativa'}</span>
+                                <button class="btn-toggle ${c.active ? 'disable' : 'enable'}" onclick="toggleCompany('${c.id}', ${!c.active})">
+                                    ${c.active ? 'Desativar' : 'Ativar'}
+                                </button>
+                                <button class="btn-delete" onclick="deleteCompany('${c.id}','${c.name}')" title="Excluir">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                                </button>
+                            </div>`).join('')}
+                </div>
+            </div>`;
+    } catch (e) {
+        body.innerHTML = `<div style="color:#c0392b;padding:20px">Erro ao carregar painel root: ${e.message}</div>`;
+    }
+}
+
+async function addCompany() {
+    const nameEl = document.getElementById('new-company-name');
+    const slugEl = document.getElementById('new-company-slug');
+    const adminEl = document.getElementById('new-company-admin');
+    const errEl = document.getElementById('add-company-error');
+    errEl.classList.remove('show');
+
+    const name = nameEl.value.trim();
+    const slug = slugEl.value.trim();
+    const adminName = adminEl.value.trim();
+
+    if (!name || !slug || !adminName) {
+        errEl.textContent = 'Preencha todos os campos.'; errEl.classList.add('show'); return;
+    }
+
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/root/companies`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-root-key': state.rootKey
+            },
+            body: JSON.stringify({ name, slug, adminName })
+        });
+        const data = await res.json();
+        if (res.status !== 200) {
+            errEl.textContent = data.error || 'Erro ao criar empresa.'; errEl.classList.add('show'); return;
+        }
+        showNotif('Empresa Criada', `A empresa "${name}" foi cadastrada com sucesso!`);
+        renderRootPanel();
+    } catch (e) {
+        errEl.textContent = 'Erro ao conectar ao servidor.'; errEl.classList.add('show');
+    }
+}
+
+async function toggleCompany(id, active) {
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/root/companies/${id}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-root-key': state.rootKey
+            },
+            body: JSON.stringify({ active })
+        });
+        if (res.status === 200) {
+            renderRootPanel();
+        } else {
+            const data = await res.json();
+            showNotif('Erro', data.error || 'Erro ao alterar status da empresa.', true);
+        }
+    } catch (e) {
+        showNotif('Erro', 'Erro ao conectar ao servidor.', true);
+    }
+}
+
+async function deleteCompany(id, name) {
+    if (!confirm(`Tem certeza que deseja excluir a empresa "${name}"?\nIsso apagará TODOS os usuários e histórico de mensagens dela definitivamente!`)) return;
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/root/companies/${id}`, {
+            method: 'DELETE',
+            headers: { 'x-root-key': state.rootKey }
+        });
+        if (res.status === 200) {
+            showNotif('Empresa Excluída', `A empresa "${name}" foi removida.`);
+            renderRootPanel();
+        } else {
+            const data = await res.json();
+            showNotif('Erro', data.error || 'Erro ao excluir empresa.', true);
+        }
+    } catch (e) {
+        showNotif('Erro', 'Erro ao conectar ao servidor.', true);
+    }
 }
 
 function renderAdminLogin() {
