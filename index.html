@@ -1489,6 +1489,10 @@ async function loadMediaThumbnail(msgId) {
 
 // ── Envio de Mensagens ────────────────────────────────────────
 async function sendMessage() {
+    if (typeof isRecording !== 'undefined' && isRecording) {
+        stopVoiceRecord();
+        return;
+    }
     const input = document.getElementById('chat-message-input');
     const text = input.value.trim();
     if (!text && !state.selectedFile) return;
