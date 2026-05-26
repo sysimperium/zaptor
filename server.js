@@ -82,6 +82,14 @@ const io = new Server(server, {
 // ── Estado Global: Multi-Tenant ────────────────────────────────
 const companyClients = new Map(); // companyId -> ClientState { client, ready, qr, error }
 
+function getSessionPath(companyId) {
+    const isLocal = process.platform === 'win32' || !process.env.PUPPETEER_EXECUTABLE_PATH;
+    if (isLocal && process.platform === 'win32') {
+        return path.join('C:', 'Users', 'Public', '.wwebjs_auth', `session-${companyId}`);
+    }
+    return path.join(__dirname, '.wwebjs_auth', `session-${companyId}`);
+}
+
 // Inicialização dinâmica do cliente WhatsApp da Empresa
 async function initCompanyClient(company, ioInstance) {
     if (companyClients.has(company.id)) {
@@ -90,7 +98,7 @@ async function initCompanyClient(company, ioInstance) {
 
     console.log(`[WhatsApp - ${company.slug}] Inicializando cliente...`);
 
-    const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-${company.id}`);
+    const sessionPath = getSessionPath(company.id);
     
     const isLocal = process.platform === 'win32' || !process.env.PUPPETEER_EXECUTABLE_PATH;
     console.log(`[WhatsApp - ${company.slug}] Rodando em ambiente local: ${isLocal} (headless: ${!isLocal})`);
@@ -964,7 +972,7 @@ app.post('/api/admin/disconnect', requireAdmin, async (req, res) => {
         try { await clientState.client.logout(); } catch (e) {}
         try { await clientState.client.destroy(); } catch (e) {}
         
-        const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-${req.companyId}`);
+        const sessionPath = getSessionPath(req.companyId);
         try {
             fs.rmSync(sessionPath, { recursive: true, force: true });
         } catch (e) {}
