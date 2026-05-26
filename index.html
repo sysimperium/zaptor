@@ -581,6 +581,23 @@
     </div>
 </div>
 
+<!-- Modal de Confirmação Customizado (Sistema) -->
+<div id="view-confirm" class="admin-overlay" style="z-index: 99999;" onclick="handleConfirmBackdrop(event)">
+    <div class="admin-modal" style="max-width: 440px; height: auto; padding: 28px; display: flex; flex-direction: column; gap: 20px; align-self: center; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);">
+        <div style="display: flex; align-items: flex-start; gap: 16px;">
+            <div style="background: #fee2e2; color: #ef4444; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; box-shadow: 0 4px 10px rgba(239,68,68,0.1);">⚠️</div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <h3 id="confirm-title" style="font-family: var(--font-head); font-weight: 800; font-size: 18px; color: var(--text-primary); text-align: left;">Confirmar Ação</h3>
+                <p id="confirm-message" style="font-size: 14px; color: var(--text-secondary); line-height: 1.6; text-align: left;"></p>
+            </div>
+        </div>
+        <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 10px;">
+            <button id="confirm-cancel-btn" style="background: #f1f5f9; color: var(--text-primary); padding: 10px 18px; border-radius: var(--radius-sm); font-weight: 700; font-size: 13px; cursor: pointer;">Cancelar</button>
+            <button id="confirm-ok-btn" style="background: #ef4444; color: white; padding: 10px 18px; border-radius: var(--radius-sm); font-weight: 700; font-size: 13px; box-shadow: 0 4px 12px rgba(239,68,68,0.2); cursor: pointer;">Confirmar</button>
+        </div>
+    </div>
+</div>
+
 <!-- Banner Flutuante de Notificação -->
 <div class="notification-banner" id="notification-banner">
     <div class="notification-banner-icon">🔔</div>
@@ -1384,7 +1401,7 @@ async function renderRootTabContent() {
                                     <div class="user-item-info">
                                         <div style="font-weight:700">${c.name}</div>
                                         <div style="font-size:12px;color:var(--text-secondary)">Slug: ${c.slug} | Plano: <strong style="color:var(--primary-dark)">${c.plan}</strong></div>
-                                        <div style="font-size:11px;color:var(--text-light)">Fone: ${c.phone_number || 'Qualquer'} | Vence: ${c.due_date ? new Date(c.due_date).toLocaleDateString() : 'N/A'}</div>
+                                        <div style="font-size:11px;color:var(--text-light)">Fone: ${c.phone_number || 'Qualquer'} | Vence: Dia <strong style="color:var(--primary-dark)">${c.due_day || (c.due_date ? new Date(c.due_date).getUTCDate() : 10)}</strong></div>
                                     </div>
                                     <span class="badge ${c.active ? 'green' : 'red'}">${c.active ? 'Ativa' : 'Inativa'}</span>
                                     <button class="btn-toggle ${c.active ? 'disable' : 'enable'}" onclick="toggleCompanyStatus('${c.id}', ${!c.active})">
@@ -1432,8 +1449,8 @@ async function renderRootTabContent() {
                                 <input id="rc-admin-contact" type="text" placeholder="Ex: 5511999999999" />
                             </div>
                             <div class="form-group">
-                                <label>Vencimento da Mensalidade</label>
-                                <input id="rc-due" type="date" required />
+                                <label>Dia do Vencimento (1 a 31)</label>
+                                <input id="rc-due-day" type="number" min="1" max="31" placeholder="Ex: 10" required />
                             </div>
                             <button type="submit" class="btn-primary" style="margin-top:10px">+ Cadastrar Empresa</button>
                         </form>
@@ -1530,7 +1547,7 @@ async function handleCreateCompany(e) {
         adminName: document.getElementById('rc-admin-name').value.trim(),
         adminPassword: document.getElementById('rc-admin-pass').value,
         adminWhatsapp: document.getElementById('rc-admin-contact').value.trim(),
-        due_date: document.getElementById('rc-due').value
+        due_day: parseInt(document.getElementById('rc-due-day').value)
     };
 
     try {
@@ -1559,10 +1576,7 @@ function startEditCompany(companyId) {
     const col = document.getElementById('root-company-form-col');
     if (!col) return;
 
-    let formattedDate = '';
-    if (c.due_date) {
-        formattedDate = c.due_date.substring(0, 10);
-    }
+    const currentDueDay = c.due_day || (c.due_date ? new Date(c.due_date).getUTCDate() : 10);
 
     col.innerHTML = `
         <div class="admin-section-title">Editar Empresa: ${c.name}</div>
@@ -1585,8 +1599,8 @@ function startEditCompany(companyId) {
                 <input id="ec-phone" type="text" value="${c.phone_number || ''}" placeholder="Ex: 5511999999999 (opcional)" />
             </div>
             <div class="form-group">
-                <label>Vencimento da Mensalidade</label>
-                <input id="ec-due" type="date" value="${formattedDate}" required />
+                <label>Dia do Vencimento (1 a 31)</label>
+                <input id="ec-due-day" type="number" min="1" max="31" value="${currentDueDay}" required />
             </div>
             <div style="display:flex;gap:10px;margin-top:10px;">
                 <button type="submit" class="btn-primary" style="flex:1">Salvar</button>
@@ -1601,7 +1615,7 @@ async function handleUpdateCompany(e, companyId) {
     const name = document.getElementById('ec-name').value.trim();
     const plan = document.getElementById('ec-plan').value;
     const phone_number = document.getElementById('ec-phone').value.trim();
-    const due_date = document.getElementById('ec-due').value;
+    const due_day = parseInt(document.getElementById('ec-due-day').value);
 
     const btn = e.target.querySelector('button[type="submit"]');
     btn.disabled = true;
@@ -1611,7 +1625,7 @@ async function handleUpdateCompany(e, companyId) {
         const res = await apiFetch(`/api/root/companies/${companyId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, plan, phone_number, due_date })
+            body: JSON.stringify({ name, plan, phone_number, due_day })
         });
         const data = await res.json();
         if (res.status === 200) {
@@ -1642,7 +1656,7 @@ async function toggleCompanyStatus(id, active) {
 }
 
 async function deleteCompany(id, name) {
-    if (!confirm(`Excluir empresa "${name}" definitivamente? Todas as mensagens e colaboradores associados serão apagados.`)) return;
+    if (!(await showConfirm('Confirmar Exclusão', `Excluir empresa "${name}" definitivamente? Todas as mensagens e colaboradores associados serão apagados.`))) return;
     try {
         await apiFetch(`/api/root/companies/${id}`, { method: 'DELETE' });
         showNotif('Empresa Apagada', 'Excluída com sucesso.');
@@ -1685,7 +1699,7 @@ async function changeBillStatus(id, status) {
 }
 
 async function deleteBill(id) {
-    if (!confirm('Deseja excluir esta fatura de mensalidade?')) return;
+    if (!(await showConfirm('Confirmar Exclusão', 'Deseja excluir esta fatura de mensalidade?'))) return;
     try {
         await apiFetch(`/api/root/installments/${id}`, { method: 'DELETE' });
         showNotif('Sucesso', 'Mensalidade excluída.');
@@ -1995,7 +2009,7 @@ function updateAdminQRContent(status = 'waiting') {
 }
 
 async function disconnectWhatsApp() {
-    if (!confirm('Deseja realmente desconectar o WhatsApp da sua empresa?')) return;
+    if (!(await showConfirm('Confirmar Desconexão', 'Deseja realmente desconectar o WhatsApp da sua empresa?'))) return;
     try {
         await apiFetch('/api/admin/disconnect', { method: 'POST' });
         showNotif('Desconectado', 'Sessão do WhatsApp destruída.');
@@ -2045,7 +2059,7 @@ async function toggleUserStatus(id, active) {
 }
 
 async function deleteUser(id, name) {
-    if (!confirm(`Deseja excluir permanentemente o acesso de "${name}"?`)) return;
+    if (!(await showConfirm('Confirmar Exclusão', `Deseja excluir permanentemente o acesso de "${name}"?`))) return;
     try {
         await apiFetch(`/api/admin/users/${id}`, { method: 'DELETE' });
         showNotif('Sucesso', 'Colaborador removido.');
@@ -2077,7 +2091,7 @@ async function handleCreateTeam(e) {
 }
 
 async function deleteTeam(id) {
-    if (!confirm('Deseja excluir esta equipe? Os colaboradores vinculados ficarão sem equipe.')) return;
+    if (!(await showConfirm('Confirmar Exclusão', 'Deseja excluir esta equipe? Os colaboradores vinculados ficarão sem equipe.'))) return;
     try {
         await apiFetch(`/api/admin/teams/${id}`, { method: 'DELETE' });
         showNotif('Sucesso', 'Equipe removida.');
@@ -2130,6 +2144,36 @@ document.addEventListener('visibilitychange', () => {
         document.title = state.unreadOriginalTitle;
     }
 });
+
+// ── Modal de Confirmação Customizado (Sistema) ─────────────────
+let confirmResolve = null;
+
+function showConfirm(title, message) {
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-message').textContent = message;
+    document.getElementById('view-confirm').classList.add('active');
+    
+    return new Promise((resolve) => {
+        confirmResolve = resolve;
+    });
+}
+
+function handleConfirmBackdrop(e) {
+    if (e.target === document.getElementById('view-confirm')) {
+        closeConfirm(false);
+    }
+}
+
+function closeConfirm(result) {
+    document.getElementById('view-confirm').classList.remove('active');
+    if (confirmResolve) {
+        confirmResolve(result);
+        confirmResolve = null;
+    }
+}
+
+document.getElementById('confirm-ok-btn').addEventListener('click', () => closeConfirm(true));
+document.getElementById('confirm-cancel-btn').addEventListener('click', () => closeConfirm(false));
 </script>
 </body>
 </html>

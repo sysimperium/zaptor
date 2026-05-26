@@ -537,7 +537,7 @@ app.post('/api/auth/login', async (req, res) => {
                 phone_number: company.phone_number,
                 plan: company.plan,
                 signature_type: company.signature_type,
-                due_date: company.due_date
+                due_day: company.due_day
             }
         });
     } catch (err) {
@@ -959,13 +959,14 @@ app.get('/api/root/companies', requireRoot, async (req, res) => {
     }
 });
 
-// Criar Empresa com Admin Principal e Data de Vencimento
+// Criar Empresa com Admin Principal e Dia de Vencimento
 app.post('/api/root/companies', requireRoot, async (req, res) => {
     if (!supabase) return res.status(503).json({ error: 'Supabase não configurado.' });
-    const { name, slug, plan, phone_number, adminName, adminPassword, adminWhatsapp, due_date } = req.body;
+    const { name, slug, plan, phone_number, adminName, adminPassword, adminWhatsapp, due_date, due_day } = req.body;
+    const finalDueDay = due_day ? parseInt(due_day) : (due_date ? new Date(due_date).getUTCDate() : 10);
     
-    if (!name?.trim() || !slug?.trim() || !adminName?.trim() || !adminPassword?.trim() || !due_date) {
-        return res.status(400).json({ error: 'Nome, slug, plano, nome do administrador, senha e data de vencimento são obrigatórios.' });
+    if (!name?.trim() || !slug?.trim() || !adminName?.trim() || !adminPassword?.trim() || !finalDueDay) {
+        return res.status(400).json({ error: 'Nome, slug, plano, nome do administrador, senha e dia de vencimento são obrigatórios.' });
     }
 
     try {
@@ -977,7 +978,7 @@ app.post('/api/root/companies', requireRoot, async (req, res) => {
                 slug: slug.trim().toLowerCase(),
                 plan: plan || 'START',
                 phone_number: phone_number ? phone_number.trim() : null,
-                due_date: due_date,
+                due_day: finalDueDay,
                 signature_type: 'none',
                 active: true
             })
@@ -1005,11 +1006,25 @@ app.post('/api/root/companies', requireRoot, async (req, res) => {
         }
 
         // 3. Cria a primeira fatura/mensalidade como 'pendente'
+        // Calcula a data específica do vencimento (no fuso UTC para evitar offsets locais)
+        const now = new Date();
+        let year = now.getUTCFullYear();
+        let month = now.getUTCMonth(); // 0-11
+        
+        let calculatedDueDate = new Date(Date.UTC(year, month, finalDueDay));
+        // Se a data já passou no mês corrente, move para o próximo mês
+        if (calculatedDueDate <= now) {
+            month += 1;
+            calculatedDueDate = new Date(Date.UTC(year, month, finalDueDay));
+        }
+        
+        const due_date_str = calculatedDueDate.toISOString().split('T')[0];
+
         await supabase
             .from('installments')
             .insert({
                 company_id: company.id,
-                due_date: due_date,
+                due_date: due_date_str,
                 amount: plan === 'START' ? 79.00 : plan === 'TEAM' ? 149.00 : plan === 'BUSINESS' ? 249.00 : 399.00,
                 status: 'pendente'
             });
@@ -1023,14 +1038,19 @@ app.post('/api/root/companies', requireRoot, async (req, res) => {
 // Atualizar Empresa (Editar Plano, Ativa/Inativa, Telefone, etc)
 app.patch('/api/root/companies/:id', requireRoot, async (req, res) => {
     if (!supabase) return res.status(503).json({ error: 'Supabase não configurado.' });
-    const { active, plan, phone_number, name, due_date } = req.body;
+    const { active, plan, phone_number, name, due_date, due_day } = req.body;
     
     const updateData = {};
     if (active !== undefined) updateData.active = active;
     if (plan !== undefined) updateData.plan = plan;
     if (phone_number !== undefined) updateData.phone_number = phone_number;
     if (name !== undefined) updateData.name = name;
-    if (due_date !== undefined) updateData.due_date = due_date;
+    
+    if (due_day !== undefined) {
+        updateData.due_day = parseInt(due_day);
+    } else if (due_date !== undefined) {
+        updateData.due_day = new Date(due_date).getUTCDate();
+    }
 
     try {
         const { data, error } = await supabase

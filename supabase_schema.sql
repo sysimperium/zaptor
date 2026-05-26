@@ -8,7 +8,7 @@
 
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS phone_number TEXT;
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS plan TEXT DEFAULT 'START' CHECK (plan IN ('START', 'TEAM', 'BUSINESS', 'ENTERPRISE'));
-ALTER TABLE companies ADD COLUMN IF NOT EXISTS due_date DATE;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS due_day INTEGER DEFAULT 10;
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS signature_type TEXT DEFAULT 'none' CHECK (signature_type IN ('none', 'name', 'name_team'));
 
 -- Criação da tabela de equipes (precisa existir antes do campo team_id na tabela de usuários)
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS companies (
     slug TEXT UNIQUE NOT NULL,
     phone_number TEXT,
     plan TEXT DEFAULT 'START' CHECK (plan IN ('START', 'TEAM', 'BUSINESS', 'ENTERPRISE')),
-    due_date DATE,
+    due_day INTEGER DEFAULT 10,
     signature_type TEXT DEFAULT 'none' CHECK (signature_type IN ('none', 'name', 'name_team')),
     active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
