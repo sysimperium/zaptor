@@ -13,6 +13,20 @@ const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
 const path = require('path');
 
+// Carrega .env manualmente se existir localmente (evita dependência externa em dev)
+const envPath = path.join(__dirname, '.env');
+if (fs.existsSync(envPath)) {
+    const envConfig = fs.readFileSync(envPath, 'utf-8');
+    envConfig.split('\n').forEach(line => {
+        if (line.trim().startsWith('#') || !line.includes('=')) return;
+        const [key, ...valueParts] = line.split('=');
+        let value = valueParts.join('=').trim();
+        if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
+        if (value.startsWith("'") && value.endsWith("'")) value = value.slice(1, -1);
+        process.env[key.trim()] = value.trim();
+    });
+}
+
 // ── Configuração ─────────────────────────────────────────────
 const PORT = 3001;
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
