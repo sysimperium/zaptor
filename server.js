@@ -76,10 +76,6 @@ async function initCompanyClient(company, ioInstance) {
     
     const client = new Client({
         authStrategy: new LocalAuth({ dataPath: sessionPath }),
-        webVersionCache: {
-            type: 'remote',
-            remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1018.665-alpha.html',
-        },
         puppeteer: {
             executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
             handleSIGTERM: false,
@@ -88,8 +84,10 @@ async function initCompanyClient(company, ioInstance) {
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-gpu',
-                '--single-process',
                 '--no-zygote',
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-renderer-backgrounding'
             ],
             timeout: 60000,
         },
@@ -164,18 +162,25 @@ async function initCompanyClient(company, ioInstance) {
         ioInstance.to(company.id).emit('whatsapp_status', { ready: true });
     });
 
-    client.on('auth_failure', (msg) => {
+    client.on('auth_failure', async (msg) => {
         console.error(`[WhatsApp - ${company.slug}] Falha de autenticação:`, msg);
         clientState.ready = false;
         clientState.error = 'auth_failure';
         ioInstance.to(company.id).emit('whatsapp_status', { ready: false, error: 'auth_failure' });
+        // Remove o cliente morto para permitir nova tentativa limpa
+        companyClients.delete(company.id);
+        try { await client.destroy(); } catch (e) {}
+        // Limpa a sessão para forçar escaneamento de novo QR
+        try { fs.rmSync(sessionPath, { recursive: true, force: true }); } catch (e) {}
+        console.log(`[WhatsApp - ${company.slug}] Cliente removido após auth_failure. Pronto para novo QR.`);
     });
 
-    client.on('disconnected', (reason) => {
+    client.on('disconnected', async (reason) => {
         console.log(`[WhatsApp - ${company.slug}] Desconectado:`, reason);
         clientState.ready = false;
         ioInstance.to(company.id).emit('whatsapp_status', { ready: false, reason });
         companyClients.delete(company.id);
+        try { await client.destroy(); } catch (e) {}
     });
 
     // Interceptação de mensagens recebidas ou enviadas
@@ -917,10 +922,8 @@ app.post('/api/admin/companies/signature', requireAdmin, async (req, res) => {
 app.post('/api/admin/disconnect', requireAdmin, async (req, res) => {
     const clientState = companyClients.get(req.companyId);
     if (clientState) {
-        try {
-            await clientState.client.logout();
-            await clientState.client.destroy();
-        } catch (e) {}
+        try { await clientState.client.logout(); } catch (e) {}
+        try { await clientState.client.destroy(); } catch (e) {}
         
         const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-${req.companyId}`);
         try {

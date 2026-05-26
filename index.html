@@ -2073,7 +2073,10 @@ function updateAdminQRContent(status = 'waiting') {
         const pct = status.includes(':') ? status.split(':')[1].trim() : '';
         container.innerHTML = `
             <div class="spinner"></div>
-            <span style="font-size:11px; color:var(--text-light)">${pct ? `Carregando ${pct}...` : 'Autenticando...'}</span>`;
+            <span style="font-size:11px; color:var(--text-light); margin-bottom:8px;">${pct ? `Carregando ${pct}...` : 'Autenticando...'}</span>
+            <button class="btn-primary" style="background:#ef4444; font-size:11px; padding:4px 8px; max-width:140px; box-shadow:none; margin-top:8px;" onclick="disconnectWhatsApp()">
+                Cancelar / Desconectar
+            </button>`;
     } else {
         container.innerHTML = `
             <div class="spinner"></div>
