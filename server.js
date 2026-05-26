@@ -77,12 +77,23 @@ async function initCompanyClient(company, ioInstance) {
     const isLocal = process.platform === 'win32' || !process.env.PUPPETEER_EXECUTABLE_PATH;
     console.log(`[WhatsApp - ${company.slug}] Rodando em ambiente local: ${isLocal} (headless: ${!isLocal})`);
 
+    let executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || undefined;
+    if (isLocal && process.platform === 'win32') {
+        const standardChromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+        const x86ChromePath = 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe';
+        if (fs.existsSync(standardChromePath)) {
+            executablePath = standardChromePath;
+        } else if (fs.existsSync(x86ChromePath)) {
+            executablePath = x86ChromePath;
+        }
+    }
+
     const client = new Client({
         authStrategy: new LocalAuth({ dataPath: sessionPath }),
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         puppeteer: {
             headless: isLocal ? false : true,
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+            executablePath: executablePath,
             handleSIGTERM: false,
             args: [
                 '--no-sandbox',
