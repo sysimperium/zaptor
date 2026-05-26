@@ -315,6 +315,8 @@
         .btn-toggle { padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; }
         .btn-toggle.enable { background: #d1fae5; color: #065f46; }
         .btn-toggle.disable { background: #fee2e2; color: #991b1b; }
+        .btn-edit { padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; background: #e0f2fe; color: #0369a1; }
+        .btn-edit:hover { background: #bae6fd; }
         .btn-delete { color: #ef4444; padding: 6px; border-radius: 6px; }
         .btn-delete:hover { background: #fee2e2; }
         
@@ -1370,6 +1372,7 @@ async function renderRootTabContent() {
         try {
             const res = await apiFetch('/api/root/companies');
             const companies = await res.json();
+            state.rootCompanies = companies;
             
             el.innerHTML = `
                 <div class="form-grid">
@@ -1387,11 +1390,12 @@ async function renderRootTabContent() {
                                     <button class="btn-toggle ${c.active ? 'disable' : 'enable'}" onclick="toggleCompanyStatus('${c.id}', ${!c.active})">
                                         ${c.active ? 'Bloquear' : 'Ativar'}
                                     </button>
+                                    <button class="btn-edit" onclick="startEditCompany('${c.id}')">Editar</button>
                                     <button class="btn-delete" onclick="deleteCompany('${c.id}', '${c.name}')">🗑️</button>
                                 </div>`).join('')}
                         </div>
                     </div>
-                    <div>
+                    <div id="root-company-form-col">
                         <div class="admin-section-title">Criar Nova Empresa</div>
                         <form id="new-company-form" onsubmit="handleCreateCompany(event)" style="display:flex;flex-direction:column;gap:12px;">
                             <div class="form-group">
@@ -1545,6 +1549,83 @@ async function handleCreateCompany(e) {
         }
     } catch (err) {
         showNotif('Erro', 'Falha ao conectar no servidor.', true);
+    }
+}
+
+function startEditCompany(companyId) {
+    const c = state.rootCompanies.find(x => x.id === companyId);
+    if (!c) return;
+
+    const col = document.getElementById('root-company-form-col');
+    if (!col) return;
+
+    let formattedDate = '';
+    if (c.due_date) {
+        formattedDate = c.due_date.substring(0, 10);
+    }
+
+    col.innerHTML = `
+        <div class="admin-section-title">Editar Empresa: ${c.name}</div>
+        <form id="edit-company-form" onsubmit="handleUpdateCompany(event, '${c.id}')" style="display:flex;flex-direction:column;gap:12px;">
+            <div class="form-group">
+                <label>Nome da Empresa</label>
+                <input id="ec-name" type="text" value="${c.name}" required />
+            </div>
+            <div class="form-group">
+                <label>Plano ZappTor</label>
+                <select id="ec-plan" required>
+                    <option value="START" ${c.plan === 'START' ? 'selected' : ''}>START - R$ 79,00 (10 users, 1 fone, s/equipe)</option>
+                    <option value="TEAM" ${c.plan === 'TEAM' ? 'selected' : ''}>TEAM - R$ 149,00 (20 users, 1 fone, 2 equipes)</option>
+                    <option value="BUSINESS" ${c.plan === 'BUSINESS' ? 'selected' : ''}>BUSINESS - R$ 249,00 (40 users, 2 fones, 4 equipes)</option>
+                    <option value="ENTERPRISE" ${c.plan === 'ENTERPRISE' ? 'selected' : ''}>ENTERPRISE - R$ 399,00 (Ilimitado)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>WhatsApp Autorizado (Número c/ DDD)</label>
+                <input id="ec-phone" type="text" value="${c.phone_number || ''}" placeholder="Ex: 5511999999999 (opcional)" />
+            </div>
+            <div class="form-group">
+                <label>Vencimento da Mensalidade</label>
+                <input id="ec-due" type="date" value="${formattedDate}" required />
+            </div>
+            <div style="display:flex;gap:10px;margin-top:10px;">
+                <button type="submit" class="btn-primary" style="flex:1">Salvar</button>
+                <button type="button" class="btn-secondary" onclick="renderRootTabContent()" style="background:#e2e8f0;color:var(--text-primary);padding:12px;border-radius:var(--radius-sm);font-weight:700;">Cancelar</button>
+            </div>
+        </form>
+    `;
+}
+
+async function handleUpdateCompany(e, companyId) {
+    e.preventDefault();
+    const name = document.getElementById('ec-name').value.trim();
+    const plan = document.getElementById('ec-plan').value;
+    const phone_number = document.getElementById('ec-phone').value.trim();
+    const due_date = document.getElementById('ec-due').value;
+
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = 'Salvando...';
+
+    try {
+        const res = await apiFetch(`/api/root/companies/${companyId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, plan, phone_number, due_date })
+        });
+        const data = await res.json();
+        if (res.status === 200) {
+            showNotif('Empresa Atualizada', 'As alterações foram salvas com sucesso.');
+            renderRootTabContent();
+        } else {
+            showNotif('Erro ao atualizar', data.error || 'Erro inesperado.', true);
+            btn.disabled = false;
+            btn.textContent = 'Salvar';
+        }
+    } catch (err) {
+        showNotif('Erro', 'Falha ao conectar no servidor.', true);
+        btn.disabled = false;
+        btn.textContent = 'Salvar';
     }
 }
 
