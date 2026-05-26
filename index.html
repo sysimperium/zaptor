@@ -340,6 +340,122 @@
         .file-preview { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: #f1f5f9; border-radius: 8px; margin-top: 8px; max-width: 300px; border: 1px solid var(--border); }
         .file-preview-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
         .file-preview-icon { width: 40px; height: 40px; background: #e2e8f0; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: var(--text-secondary); }
+
+        /* Mensagem Hover Options (Reações e Responder) */
+        .message-actions {
+            position: absolute;
+            top: -12px;
+            right: 8px;
+            display: none;
+            background: white;
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            padding: 2px 6px;
+            gap: 4px;
+            z-index: 10;
+        }
+        .message-bubble:hover .message-actions {
+            display: flex;
+        }
+        .message-actions button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.1s ease;
+        }
+        .message-actions button:hover {
+            transform: scale(1.2);
+        }
+
+        /* Emojis Menu */
+        .reactions-menu {
+            position: absolute;
+            bottom: 24px;
+            right: 0;
+            display: none;
+            background: white;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+            border-radius: 20px;
+            padding: 6px 10px;
+            gap: 8px;
+            z-index: 20;
+            border: 1px solid var(--border);
+            animation: popUp 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popUp {
+            from { transform: scale(0.6) translateY(10px); opacity: 0; }
+            to { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        .reactions-menu.active {
+            display: flex;
+        }
+        .reactions-menu span {
+            cursor: pointer;
+            font-size: 18px;
+            transition: transform 0.1s ease;
+        }
+        .reactions-menu span:hover {
+            transform: scale(1.3);
+        }
+
+        /* Reactions list under bubble */
+        .message-reactions {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 4px;
+            background: rgba(0, 0, 0, 0.05);
+            padding: 2px 6px;
+            border-radius: 10px;
+            align-self: flex-start;
+            font-size: 11px;
+            border: 1px solid rgba(0, 0, 0, 0.02);
+        }
+        .message-bubble.outgoing .message-reactions {
+            align-self: flex-end;
+        }
+
+        /* Quoted/Reply message bubble styling */
+        .msg-quoted-bubble {
+            background: rgba(0, 0, 0, 0.05);
+            border-left: 4px solid var(--primary);
+            border-radius: 4px;
+            padding: 6px 8px;
+            margin-bottom: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .msg-quoted-sender {
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 11px;
+        }
+        .msg-quoted-body {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 250px;
+        }
+
+        /* Blinking dot for recording status */
+        .blinking-dot {
+            animation: voice-blink 1.2s infinite;
+        }
+        @keyframes voice-blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.2; }
+            100% { opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -500,27 +616,55 @@
             </div>
 
             <!-- Footer / Input de Mensagem -->
-            <div class="chat-footer">
-                <button class="icon-btn" onclick="document.getElementById('file-input').click()" title="Anexar arquivo">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
-                </button>
-                <input type="file" id="file-input" class="hidden" onchange="handleFileSelected(event)" />
-
-                <div style="display:flex; flex-direction:column; flex:1;">
-                    <div class="chat-input-wrap">
-                        <input type="text" id="chat-message-input" placeholder="Digite uma mensagem..." onkeydown="handleMessageKeydown(event)" />
+            <div class="chat-footer" style="display:flex; flex-direction:column; gap:8px;">
+                <!-- Reply Preview Panel -->
+                <div id="reply-preview-container" class="reply-preview-container hidden" style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:rgba(0,0,0,0.05); border-left: 4px solid var(--primary); border-radius:4px; font-size:12px; width: 100%;">
+                    <div style="flex:1; overflow:hidden;">
+                        <div id="reply-preview-sender" style="font-weight:700; color:var(--primary);">Nome</div>
+                        <div id="reply-preview-body" style="color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Mensagem respondida</div>
                     </div>
-                    <!-- Preview do Arquivo Selecionado -->
-                    <div id="file-preview" class="file-preview hidden">
-                        <div id="file-preview-thumb"></div>
-                        <div id="file-preview-name" class="user-item-name" style="font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">arquivo.ext</div>
-                        <button class="btn-delete" onclick="clearFile()" style="padding:4px">❌</button>
-                    </div>
+                    <button class="icon-btn" onclick="cancelReply()" style="padding:2px; font-size:10px;">❌</button>
                 </div>
 
-                <button class="icon-btn" onclick="sendMessage()" style="background:var(--primary); color:white; width:44px; height:44px;" title="Enviar">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                </button>
+                <!-- Input Row -->
+                <div style="display:flex; align-items:center; gap:8px; width:100%;">
+                    <button class="icon-btn" onclick="document.getElementById('file-input').click()" title="Anexar arquivo">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+                    </button>
+                    <input type="file" id="file-input" class="hidden" onchange="handleFileSelected(event)" />
+
+                    <div style="display:flex; flex-direction:column; flex:1;">
+                        <div class="chat-input-wrap">
+                            <input type="text" id="chat-message-input" placeholder="Digite uma mensagem..." onkeydown="handleMessageKeydown(event)" />
+                            
+                            <!-- Gravador de Áudio UI -->
+                            <div id="voice-record-status" class="voice-record-status hidden" style="display:flex; align-items:center; gap:8px; width:100%; color:#ef4444; font-weight:600;">
+                                <span class="blinking-dot" style="font-size:18px;">●</span>
+                                <span style="color:var(--text-primary); font-size:13px;">Gravando...</span>
+                                <span id="voice-duration" style="color:var(--text-secondary); margin-left:auto; font-family:monospace; font-size:13px;">00:00</span>
+                                <button class="icon-btn" onclick="cancelVoiceRecord()" title="Cancelar Gravação" style="color:var(--text-secondary); padding:4px;">
+                                    ❌
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Preview do Arquivo Selecionado -->
+                        <div id="file-preview" class="file-preview hidden">
+                            <div id="file-preview-thumb"></div>
+                            <div id="file-preview-name" class="user-item-name" style="font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">arquivo.ext</div>
+                            <button class="btn-delete" onclick="clearFile()" style="padding:4px">❌</button>
+                        </div>
+                    </div>
+
+                    <button class="icon-btn" id="voice-record-btn" onclick="toggleVoiceRecord()" title="Gravar mensagem de voz" style="color:var(--text-secondary);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+                        </svg>
+                    </button>
+
+                    <button class="icon-btn" onclick="sendMessage()" style="background:var(--primary); color:white; width:44px; height:44px; flex-shrink: 0;" title="Enviar">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    </button>
+                </div>
             </div>
         </div>
     </section>
@@ -633,6 +777,8 @@ const state = {
     qrCodeImg: null,
     qrError: null,
     rootInstallments: [], // Todas as mensalidades carregadas
+    quotedMessage: null, // Mensagem sendo respondida
+    reactions: {}, // Reações de mensagens em tempo real { msgId: { senderId: emoji } }
 };
 
 // URL do Backend
@@ -941,6 +1087,32 @@ function initSocket() {
 
     state.socket.on('chat_read', () => { if (state.activeSidebarTab === 'wpp') fetchChats(); });
     state.socket.on('chat_unread', () => { if (state.activeSidebarTab === 'wpp') fetchChats(); });
+
+    // Ouvinte para reações em tempo real
+    state.socket.on('whatsapp_reaction', (data) => {
+        if (state.activeChat && state.activeChat.id === data.chatId) {
+            if (!state.reactions[data.msgId]) {
+                state.reactions[data.msgId] = {};
+            }
+            if (data.emoji) {
+                state.reactions[data.msgId][data.senderId] = data.emoji;
+            } else {
+                delete state.reactions[data.msgId][data.senderId];
+            }
+            renderMessages();
+        }
+    });
+
+    // Ouvinte para atualização de status da mensagem (acks / ticks)
+    state.socket.on('whatsapp_ack', (data) => {
+        if (state.activeChat && state.activeChat.id === data.chatId) {
+            const msg = state.messages.find(m => m.id === data.msgId);
+            if (msg) {
+                msg.ack = data.ack;
+                renderMessages();
+            }
+        }
+    });
 }
 
 function updateConnectionBar() {
@@ -1120,6 +1292,8 @@ async function selectChat(id, name, isInternal = false, teamName = 'Geral') {
 
 function deselectChat() {
     state.activeChat = null;
+    state.quotedMessage = null;
+    if (typeof cancelReply === 'function') cancelReply();
     document.getElementById('chat-placeholder').classList.remove('hidden');
     document.getElementById('chat-active').classList.add('hidden');
     renderChatList();
@@ -1168,6 +1342,7 @@ function renderMessages() {
 
     state.messages.forEach(msg => {
         const bubble = document.createElement('div');
+        bubble.id = `msg-${msg.id}`;
         
         let isOut = false;
         if (state.activeChat.isInternal) {
@@ -1181,6 +1356,15 @@ function renderMessages() {
         
         let contentHtml = '';
         
+        // Citação/Resposta se houver
+        if (msg.quotedMsg) {
+            contentHtml += `
+                <div class="msg-quoted-bubble" onclick="scrollToMessage('${msg.quotedMsg.id}')">
+                    <span class="msg-quoted-sender">${msg.quotedMsg.sender}</span>
+                    <span class="msg-quoted-body">${formatMsgText(msg.quotedMsg.body || '(Mídia)')}</span>
+                </div>`;
+        }
+
         // Remetente em grupos ou chat interno
         if (!isOut && (state.activeChat.isGroup || state.activeChat.isInternal)) {
             const sender = msg.senderName || 'Colega';
@@ -1190,7 +1374,7 @@ function renderMessages() {
         // Tratamento de Mídia
         if (msg.hasMedia) {
             contentHtml += `
-                <div class="msg-media" onclick="viewMedia('${msg.id}')" id="media-${msg.id}">
+                <div class="msg-media" id="media-${msg.id}">
                     <span style="font-size:12px;color:var(--text-secondary)">📁 Carregando mídia...</span>
                 </div>`;
             loadMediaThumbnail(msg.id);
@@ -1200,12 +1384,52 @@ function renderMessages() {
             contentHtml += `<span class="msg-body">${formatMsgText(msg.body)}</span>`;
         }
 
+        // Reações
+        const msgReactions = Object.assign({}, msg.reactions || {}, state.reactions[msg.id] || {});
+        const reactionCount = Object.keys(msgReactions).length;
+        if (reactionCount > 0) {
+            const emojis = Array.from(new Set(Object.values(msgReactions))).slice(0, 3).join('');
+            contentHtml += `
+                <div class="message-reactions" title="Reações">
+                    <span>${emojis}</span>
+                    <span style="font-weight:600; color:var(--text-secondary); margin-left: 2px;">${reactionCount}</span>
+                </div>`;
+        }
+
+        // Meta (Hora e Ticks status)
         const date = new Date(msg.timestamp * 1000);
+        const ackIcons = {
+            '-1': '⚠️',
+            '0': '⏱',
+            '1': '✓',
+            '2': '✓✓',
+            '3': '<span style="color:#34b7f1">✓✓</span>',
+            '4': '<span style="color:#34b7f1">✓✓</span>'
+        };
+        const ackIcon = isOut ? (ackIcons[msg.ack] || '✓') : '';
+
         contentHtml += `
             <span class="msg-meta">
                 ${date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                ${isOut ? '✓✓' : ''}
+                ${ackIcon}
             </span>`;
+
+        // Hover Options (Reaction and Reply)
+        if (!state.activeChat.isInternal) {
+            contentHtml += `
+                <div class="message-actions">
+                    <button onclick="toggleReactionMenu(event, '${msg.id}')" title="Reagir">😀</button>
+                    <button onclick="initiateReply(event, '${msg.id}')" title="Responder">↩</button>
+                </div>
+                <div id="reactions-menu-${msg.id}" class="reactions-menu">
+                    <span onclick="reactMessage('${msg.id}', '👍')">👍</span>
+                    <span onclick="reactMessage('${msg.id}', '❤️')">❤️</span>
+                    <span onclick="reactMessage('${msg.id}', '😂')">😂</span>
+                    <span onclick="reactMessage('${msg.id}', '😮')">😮</span>
+                    <span onclick="reactMessage('${msg.id}', '😢')">😢</span>
+                    <span onclick="reactMessage('${msg.id}', '🙏')">🙏</span>
+                </div>`;
+        }
 
         bubble.innerHTML = contentHtml;
         container.appendChild(bubble);
@@ -1214,7 +1438,20 @@ function renderMessages() {
     container.scrollTop = container.scrollHeight;
 }
 
+function scrollToMessage(msgId) {
+    const el = document.getElementById(`msg-${msgId}`);
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const originalBg = el.style.backgroundColor;
+        el.style.backgroundColor = '#fef3c7'; // Destaque amarelo
+        setTimeout(() => {
+            el.style.backgroundColor = originalBg;
+        }, 1500);
+    }
+}
+
 function formatMsgText(txt) {
+    if (!txt) return '';
     return txt
         .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
         .replace(/_(.*?)_/g, '<em>$1</em>')
@@ -1232,6 +1469,8 @@ async function loadMediaThumbnail(msgId) {
             container.innerHTML = `<img src="data:${media.mimetype};base64,${media.data}" alt="Mídia" />`;
         } else if (media.mimetype.startsWith('video/')) {
             container.innerHTML = `<video src="data:${media.mimetype};base64,${media.data}" class="msg-media-video" controls></video>`;
+        } else if (media.mimetype.startsWith('audio/')) {
+            container.innerHTML = `<audio src="data:${media.mimetype};base64,${media.data}" controls style="max-width:100%; outline:none; margin: 4px 0;"></audio>`;
         } else {
             container.innerHTML = `
                 <div class="msg-media-doc">
@@ -1261,7 +1500,8 @@ async function sendMessage() {
         chatId: state.activeChat.id,
         text: text,
         isInternal: state.activeChat.isInternal,
-        receiverName: state.activeChat.isInternal ? state.activeChat.name : null
+        receiverName: state.activeChat.isInternal ? state.activeChat.name : null,
+        quotedMessageId: state.quotedMessage ? state.quotedMessage.id : null
     };
 
     if (state.selectedFile) {
@@ -1276,7 +1516,12 @@ async function sendMessage() {
             senderName: state.user.name,
             body: text,
             timestamp: Date.now() / 1000,
-            hasMedia: !!state.selectedFile
+            hasMedia: !!state.selectedFile,
+            quotedMsg: state.quotedMessage ? {
+                id: state.quotedMessage.id,
+                body: state.quotedMessage.body,
+                sender: state.quotedMessage.fromMe ? 'Você' : (state.quotedMessage.senderName || 'Colega')
+            } : null
         };
         state.messages.push(optimistMsg);
         renderMessages();
@@ -1287,6 +1532,8 @@ async function sendMessage() {
     // Limpar campos
     input.value = '';
     clearFile();
+    state.quotedMessage = null;
+    cancelReply();
 }
 
 function handleMessageKeydown(e) {
@@ -1321,6 +1568,181 @@ function handleFileSelected(e) {
         }
     };
     reader.readAsDataURL(file);
+}
+
+// ── Controle de Reações e Citações (Quotes) ──────────────────────
+function toggleReactionMenu(e, msgId) {
+    e.stopPropagation();
+    document.querySelectorAll('.reactions-menu').forEach(menu => {
+        if (menu.id !== `reactions-menu-${msgId}`) {
+            menu.classList.remove('active');
+        }
+    });
+
+    const menu = document.getElementById(`reactions-menu-${msgId}`);
+    if (menu) {
+        menu.classList.toggle('active');
+    }
+}
+
+document.addEventListener('click', () => {
+    document.querySelectorAll('.reactions-menu').forEach(menu => {
+        menu.classList.remove('active');
+    });
+});
+
+function reactMessage(msgId, emoji) {
+    if (!state.socket) return;
+    
+    if (!state.reactions[msgId]) {
+        state.reactions[msgId] = {};
+    }
+    state.reactions[msgId][state.user.id] = emoji;
+    renderMessages();
+
+    state.socket.emit('react_message', {
+        companyId: state.user.company_id,
+        msgId: msgId,
+        emoji: emoji
+    });
+}
+
+function initiateReply(e, msgId) {
+    e.stopPropagation();
+    const msg = state.messages.find(m => m.id === msgId);
+    if (!msg) return;
+
+    state.quotedMessage = msg;
+
+    const preview = document.getElementById('reply-preview-container');
+    const senderEl = document.getElementById('reply-preview-sender');
+    const bodyEl = document.getElementById('reply-preview-body');
+
+    senderEl.textContent = msg.fromMe ? 'Você' : (msg.senderName || 'Cliente');
+    bodyEl.textContent = msg.body || (msg.hasMedia ? '📁 Mídia' : '');
+
+    preview.classList.remove('hidden');
+    document.getElementById('chat-message-input').focus();
+}
+
+function cancelReply() {
+    state.quotedMessage = null;
+    const preview = document.getElementById('reply-preview-container');
+    if (preview) preview.classList.add('hidden');
+}
+
+// ── Gravador de Áudio (Voice Recorder) ───────────────────────────
+let mediaRecorder = null;
+let audioChunks = [];
+let voiceDurationInterval = null;
+let voiceDurationSeconds = 0;
+let isRecording = false;
+
+async function startVoiceRecord() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+            stream.getTracks().forEach(track => track.stop());
+
+            if (voiceDurationSeconds > 0 && audioChunks.length > 0) {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/ogg; codecs=opus' });
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = () => {
+                    const base64Data = reader.result;
+                    const payload = {
+                        companyId: state.user.company_id,
+                        loginName: state.user.name,
+                        userId: state.user.id,
+                        chatId: state.activeChat.id,
+                        isInternal: state.activeChat.isInternal,
+                        receiverName: state.activeChat.isInternal ? state.activeChat.name : null,
+                        fileData: {
+                            name: 'audio-record.ogg',
+                            mimetype: 'audio/ogg',
+                            data: base64Data
+                        }
+                    };
+
+                    if (state.activeChat.isInternal) {
+                        const optimistMsg = {
+                            id: 'temp-' + Date.now(),
+                            fromMe: true,
+                            senderName: state.user.name,
+                            body: '',
+                            timestamp: Date.now() / 1000,
+                            hasMedia: true
+                        };
+                        state.messages.push(optimistMsg);
+                        renderMessages();
+                    }
+
+                    state.socket.emit('send_message', payload);
+                };
+            }
+            resetVoiceRecordState();
+        };
+
+        mediaRecorder.start();
+        isRecording = true;
+        voiceDurationSeconds = 0;
+        document.getElementById('chat-message-input').classList.add('hidden');
+        document.getElementById('voice-record-status').classList.remove('hidden');
+        document.getElementById('voice-record-btn').style.color = '#ef4444';
+        
+        voiceDurationInterval = setInterval(() => {
+            voiceDurationSeconds++;
+            const mins = String(Math.floor(voiceDurationSeconds / 60)).padStart(2, '0');
+            const secs = String(voiceDurationSeconds % 60).padStart(2, '0');
+            document.getElementById('voice-duration').textContent = `${mins}:${secs}`;
+        }, 1000);
+
+    } catch (err) {
+        console.error('Erro ao acessar microfone:', err);
+        alert('Não foi possível acessar o microfone. Por favor, verifique as permissões de gravação no seu navegador.');
+        resetVoiceRecordState();
+    }
+}
+
+function stopVoiceRecord() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+    }
+}
+
+function cancelVoiceRecord() {
+    voiceDurationSeconds = 0;
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+    }
+}
+
+function resetVoiceRecordState() {
+    isRecording = false;
+    if (voiceDurationInterval) {
+        clearInterval(voiceDurationInterval);
+        voiceDurationInterval = null;
+    }
+    document.getElementById('chat-message-input').classList.remove('hidden');
+    document.getElementById('voice-record-status').classList.add('hidden');
+    document.getElementById('voice-record-btn').style.color = 'var(--text-secondary)';
+    document.getElementById('voice-duration').textContent = '00:00';
+}
+
+function toggleVoiceRecord() {
+    if (!state.activeChat) return;
+    if (isRecording) {
+        stopVoiceRecord();
+    } else {
+        startVoiceRecord();
+    }
 }
 
 function clearFile() {

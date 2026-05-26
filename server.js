@@ -248,6 +248,22 @@ async function initCompanyClient(company, ioInstance) {
 
     // Interceptação de mensagens recebidas ou enviadas
     client.on('message_create', async (msg) => {
+        let quotedMsg = null;
+        if (msg.hasQuotedMsg) {
+            try {
+                const quoted = await msg.getQuotedMessage();
+                if (quoted) {
+                    quotedMsg = {
+                        id: quoted.id._serialized,
+                        body: quoted.body,
+                        type: quoted.type,
+                        fromMe: quoted.fromMe,
+                        sender: quoted.fromMe ? 'Você' : (quoted.author || quoted.from)
+                    };
+                }
+            } catch (e) {}
+        }
+
         const msgData = {
             id: msg.id._serialized,
             chatId: msg.id.remote || (msg.fromMe ? msg.to : msg.from),
@@ -258,6 +274,8 @@ async function initCompanyClient(company, ioInstance) {
             fromMe: msg.fromMe,
             hasMedia: msg.hasMedia,
             type: msg.type,
+            ack: msg.ack,
+            quotedMsg
         };
 
         // Tratamento especial para Chat Interno da Equipe
@@ -307,6 +325,25 @@ async function initCompanyClient(company, ioInstance) {
                 // Silencioso
             }
         }
+    });
+
+    // Encaminha reações em tempo real via socket
+    client.on('message_reaction', async (reaction) => {
+        ioInstance.to(company.id).emit('whatsapp_reaction', {
+            msgId: reaction.msgId._serialized,
+            emoji: reaction.reaction,
+            senderId: reaction.senderId,
+            chatId: reaction.msgId.remote
+        });
+    });
+
+    // Encaminha atualizações de status (Ticks de leitura) via socket
+    client.on('message_ack', (msg, ack) => {
+        ioInstance.to(company.id).emit('whatsapp_ack', {
+            msgId: msg.id._serialized,
+            chatId: msg.id.remote || (msg.fromMe ? msg.to : msg.from),
+            ack: ack
+        });
     });
 
     client.initialize().catch(err => {
@@ -684,17 +721,47 @@ app.get('/api/chats/:chatId/messages', requireCompanyClient, async (req, res) =>
     try {
         const chat = await req.companyClient.getChatById(req.params.chatId);
         const messages = await chat.fetchMessages({ limit: 50 });
-        res.json(messages.map(msg => ({
-            id: msg.id._serialized,
-            chatId: msg.id.remote || (msg.fromMe ? msg.to : msg.from),
-            from: msg.from,
-            to: msg.to,
-            body: msg.body,
-            timestamp: msg.timestamp,
-            fromMe: msg.fromMe,
-            hasMedia: msg.hasMedia,
-            type: msg.type,
-        })));
+        
+        const mapped = await Promise.all(messages.map(async msg => {
+            let quotedMsg = null;
+            if (msg.hasQuotedMsg) {
+                try {
+                    const quoted = await msg.getQuotedMessage();
+                    if (quoted) {
+                        quotedMsg = {
+                            id: quoted.id._serialized,
+                            body: quoted.body,
+                            type: quoted.type,
+                            fromMe: quoted.fromMe,
+                            sender: quoted.fromMe ? 'Você' : (quoted.author || quoted.from)
+                        };
+                    }
+                } catch (e) {}
+            }
+            
+            const reactions = {};
+            if (msg._data && msg._data.reactions) {
+                for (const r of msg._data.reactions) {
+                    reactions[r.sender || r.reactionParentKey] = r.reactionText;
+                }
+            }
+
+            return {
+                id: msg.id._serialized,
+                chatId: msg.id.remote || (msg.fromMe ? msg.to : msg.from),
+                from: msg.from,
+                to: msg.to,
+                body: msg.body,
+                timestamp: msg.timestamp,
+                fromMe: msg.fromMe,
+                hasMedia: msg.hasMedia,
+                type: msg.type,
+                ack: msg.ack,
+                quotedMsg,
+                reactions
+            };
+        }));
+        res.json(mapped);
     } catch (err) {
         res.status(500).json({ error: err.toString() });
     }
@@ -1303,7 +1370,7 @@ io.on('connection', (socket) => {
 
     // Envio de Mensagem via Socket
     socket.on('send_message', async (data) => {
-        const { companyId, loginName, userId, chatId, text, fileData, isInternal, receiverName } = data;
+        const { companyId, loginName, userId, chatId, text, fileData, isInternal, receiverName, quotedMessageId } = data;
 
         if (!companyId) return;
 
@@ -1327,12 +1394,16 @@ io.on('connection', (socket) => {
                 const internalPayload = `*ZappTor Chat Interno*\n*De: ${loginName} | Para: ${receiverName}*\n${text?.trim() || ''}`;
                 
                 let msg;
+                let options = { caption: internalPayload };
+                if (quotedMessageId) {
+                    options.quotedMessageId = quotedMessageId;
+                }
                 if (fileData) {
                     const base64Data = fileData.data.includes(',') ? fileData.data.split(',')[1] : fileData.data;
                     const media = new MessageMedia(fileData.mimetype, base64Data, fileData.name);
-                    msg = await client.sendMessage(ownJid, media, { caption: internalPayload });
+                    msg = await client.sendMessage(ownJid, media, options);
                 } else {
-                    msg = await client.sendMessage(ownJid, internalPayload);
+                    msg = await client.sendMessage(ownJid, internalPayload, quotedMessageId ? { quotedMessageId } : undefined);
                 }
 
                 console.log(`[Chat Interno] De ${loginName} para ${receiverName} enviado ao próprio número.`);
@@ -1369,12 +1440,24 @@ io.on('connection', (socket) => {
                 : `${signature}(Enviou um anexo)`;
 
             let msg;
+            let options = { caption: formattedText };
+            if (quotedMessageId) {
+                options.quotedMessageId = quotedMessageId;
+            }
+
             if (fileData) {
                 const base64Data = fileData.data.includes(',') ? fileData.data.split(',')[1] : fileData.data;
                 const media = new MessageMedia(fileData.mimetype, base64Data, fileData.name);
-                msg = await client.sendMessage(chatId, media, { caption: formattedText });
+                
+                if (fileData.mimetype.startsWith('audio/')) {
+                    options = { sendAudioAsVoice: true };
+                    if (quotedMessageId) {
+                        options.quotedMessageId = quotedMessageId;
+                    }
+                }
+                msg = await client.sendMessage(chatId, media, options);
             } else {
-                msg = await client.sendMessage(chatId, formattedText);
+                msg = await client.sendMessage(chatId, formattedText, quotedMessageId ? { quotedMessageId } : undefined);
             }
 
             console.log(`[Msg] Enviada para ${chatId} por ${loginName} na empresa: ${companyId}`);
@@ -1400,6 +1483,24 @@ io.on('connection', (socket) => {
         } catch (error) {
             console.error('[Socket Send Msg] Erro:', error.message);
             socket.emit('message_error', { error: 'Falha ao enviar mensagem pelo WhatsApp.' });
+        }
+    });
+
+    // Recebe reação do atendente e envia para o WhatsApp
+    socket.on('react_message', async (data) => {
+        const { companyId, msgId, emoji } = data;
+        if (!companyId || !msgId) return;
+
+        const clientState = companyClients.get(companyId);
+        if (clientState && clientState.ready) {
+            try {
+                const msg = await clientState.client.getMessageById(msgId);
+                if (msg) {
+                    await msg.react(emoji);
+                }
+            } catch (err) {
+                console.error('[Socket React Msg] Erro:', err.message);
+            }
         }
     });
 
