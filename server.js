@@ -90,6 +90,27 @@ function getSessionPath(companyId) {
     return path.join(__dirname, '.wwebjs_auth', `session-${companyId}`);
 }
 
+function matchBrazilianNumber(num1, num2) {
+    let n1 = num1.replace(/\D/g, '');
+    let n2 = num2.replace(/\D/g, '');
+    
+    if (n1.startsWith('55') && n1.length > 10) n1 = n1.substring(2);
+    if (n2.startsWith('55') && n2.length > 10) n2 = n2.substring(2);
+    
+    if (n1 === n2) return true;
+    
+    if (n1.length === 11 && n2.length === 10) {
+        const n1Without9 = n1.substring(0, 2) + n1.substring(3);
+        if (n1Without9 === n2) return true;
+    }
+    if (n2.length === 11 && n1.length === 10) {
+        const n2Without9 = n2.substring(0, 2) + n2.substring(3);
+        if (n2Without9 === n1) return true;
+    }
+    
+    return n1.endsWith(n2) || n2.endsWith(n1);
+}
+
 // Inicialização dinâmica do cliente WhatsApp da Empresa
 async function initCompanyClient(company, ioInstance) {
     if (companyClients.has(company.id)) {
@@ -175,7 +196,7 @@ async function initCompanyClient(company, ioInstance) {
             const cleanConnected = connectedNumber.replace(/\D/g, '').trim();
 
             if (allowed.length > 0) {
-                const isAllowed = allowed.some(num => cleanConnected.endsWith(num) || num.endsWith(cleanConnected));
+                const isAllowed = allowed.some(num => matchBrazilianNumber(cleanConnected, num));
                 if (!isAllowed) {
                     console.warn(`[WhatsApp - ${company.slug}] Número conectado (${connectedNumber}) não autorizado! Autorizados: ${company.phone_number}`);
                     clientState.ready = false;
