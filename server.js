@@ -345,6 +345,11 @@ const requireRoot = async (req, res, next) => {
     }
 };
 
+// Rota raiz para servir o frontend index.html caso acessado via navegador
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 // ── API: Status Geral e Conexão ────────────────────────────────
 app.get('/api/status', async (req, res) => {
     const companyId = req.headers['x-company-id'];
