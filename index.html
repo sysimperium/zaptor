@@ -476,7 +476,7 @@
         <!-- Tela padrão sem conversa aberta -->
         <div class="chat-placeholder" id="chat-placeholder">
             <img class="chat-placeholder-logo" src="imgs/logo.png" alt="ZappTor Logo" onerror="this.onerror=null; this.src='https://via.placeholder.com/150';" />
-            <h2>ZappTor Premium</h2>
+            <h2 id="placeholder-company-title">ZappTor Premium</h2>
             <p>Selecione uma conversa ou membro da equipe na barra lateral para começar a enviar mensagens.</p>
         </div>
 
@@ -844,6 +844,10 @@ function enterDashboardOrChat() {
         // Atualiza cabeçalhos da interface
         document.getElementById('sidebar-username').textContent = state.user.name;
         document.getElementById('sidebar-company-name').textContent = state.company.name;
+        const placeholderTitle = document.getElementById('placeholder-company-title');
+        if (placeholderTitle) {
+            placeholderTitle.textContent = `ZappTor ${state.company.name}`;
+        }
         
         const badge = document.getElementById('sidebar-role-badge');
         badge.textContent = state.user.role === 'admin' ? 'Administrador' : 'Colaborador';
@@ -1112,6 +1116,14 @@ async function selectChat(id, name, isInternal = false, teamName = 'Geral') {
 
     // Carregar mensagens
     loadMessages();
+}
+
+function deselectChat() {
+    state.activeChat = null;
+    document.getElementById('chat-placeholder').classList.remove('hidden');
+    document.getElementById('chat-active').classList.add('hidden');
+    renderChatList();
+    renderInternalUserList();
 }
 
 async function loadMessages() {
@@ -2255,6 +2267,29 @@ function closeConfirm(result) {
 
 document.getElementById('confirm-ok-btn').addEventListener('click', () => closeConfirm(true));
 document.getElementById('confirm-cancel-btn').addEventListener('click', () => closeConfirm(false));
+
+// ESC Key Listener to return to home/placeholder screen
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' || e.key === 'Esc') {
+        const chatView = document.getElementById('view-chat');
+        if (chatView && chatView.classList.contains('active')) {
+            // Close confirm dialog if open
+            if (document.getElementById('view-confirm').classList.contains('active')) {
+                closeConfirm(false);
+            }
+            // Close admin panel if open
+            if (document.getElementById('view-admin').classList.contains('active')) {
+                closeAdmin();
+            }
+            // Close root panel if open
+            if (document.getElementById('view-root').classList.contains('active')) {
+                closeRoot();
+            }
+            // Return to home/placeholder screen
+            deselectChat();
+        }
+    }
+});
 </script>
 </body>
 </html>
