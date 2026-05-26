@@ -877,6 +877,7 @@ function initSocket() {
     });
 
     state.socket.on('whatsapp_status', (data) => {
+        const wasReady = state.isReady;
         state.isReady = data.ready;
         state.qrError = data.error || null;
         updateConnectionBar();
@@ -884,13 +885,26 @@ function initSocket() {
         // Tratar bloqueio de usuário regular se WhatsApp estiver desconectado
         const block = document.getElementById('wpp-disconnected-block');
         if (!data.ready && state.user.role === 'user') {
-            block.classList.remove('hidden');
+            block?.classList.remove('hidden');
         } else {
-            block.classList.add('hidden');
+            block?.classList.add('hidden');
         }
 
         if (data.ready) {
             fetchChats();
+        }
+
+        // Atualiza o painel admin de conexão WhatsApp se estiver aberto
+        const adminView = document.getElementById('view-admin');
+        const isAdminOpen = adminView && adminView.classList.contains('active');
+        if (isAdminOpen && state.activeAdminTab === 'wpp') {
+            // Se mudou de estado (conectou ou desconectou), re-renderiza o painel
+            if (wasReady !== data.ready) {
+                renderAdminTabContent();
+            } else {
+                // Só atualiza o QR container (ex: erro de número não autorizado)
+                updateAdminQRContent(data.ready ? 'ready' : 'waiting');
+            }
         }
     });
 
@@ -2045,16 +2059,21 @@ async function renderAdminTabContent() {
 
 function updateAdminQRContent(status = 'waiting') {
     const container = document.getElementById('admin-wpp-qr-container');
-    if (!container) return;
+    if (!container) return; // Painel pode estar no estado 'connected' (sem container)
 
     if (state.qrCodeImg) {
         container.innerHTML = `
             <img src="${state.qrCodeImg}" style="width:200px; height:200px; object-fit:contain" />
             <span style="font-size:12px; font-weight:700; color:var(--primary-dark)">Escaneie no celular</span>`;
+    } else if (status === 'ready' || state.isReady) {
+        container.innerHTML = `
+            <div style="font-size:48px">✅</div>
+            <span style="font-size:13px; font-weight:700; color:var(--primary-dark)">WhatsApp Conectado!</span>`;
     } else if (status.startsWith('loading')) {
+        const pct = status.includes(':') ? status.split(':')[1].trim() : '';
         container.innerHTML = `
             <div class="spinner"></div>
-            <span style="font-size:11px; color:var(--text-light)">${status}</span>`;
+            <span style="font-size:11px; color:var(--text-light)">${pct ? `Carregando ${pct}...` : 'Autenticando...'}</span>`;
     } else {
         container.innerHTML = `
             <div class="spinner"></div>
