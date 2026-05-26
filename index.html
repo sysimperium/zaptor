@@ -631,7 +631,8 @@ const state = {
     searchQuery: '',
     internalUsers: [], // Outros colaboradores da empresa
     qrCodeImg: null,
-    qrError: null
+    qrError: null,
+    rootInstallments: [], // Todas as mensalidades carregadas
 };
 
 // URL do Backend
@@ -1464,9 +1465,13 @@ async function renderRootTabContent() {
             // Mensalidades
             const cRes = await apiFetch('/api/root/companies');
             const companies = await cRes.json();
+            state.rootCompanies = companies;
 
             const iRes = await apiFetch('/api/root/installments');
             const installments = await iRes.json();
+            state.rootInstallments = installments;
+
+            const firstCompanyId = companies.length > 0 ? companies[0].id : '';
 
             el.innerHTML = `
                 <div class="form-grid">
@@ -1475,7 +1480,7 @@ async function renderRootTabContent() {
                         <form id="generate-bill-form" onsubmit="handleGenerateBill(event)" style="display:flex;flex-direction:column;gap:12px">
                             <div class="form-group">
                                 <label>Selecione a Empresa</label>
-                                <select id="gb-company" required>
+                                <select id="gb-company" required onchange="filterInstallmentsList(this.value)">
                                     ${companies.map(c => `<option value="${c.id}">${c.name} (${c.plan})</option>`).join('')}
                                 </select>
                             </div>
@@ -1499,38 +1504,14 @@ async function renderRootTabContent() {
                             <button type="submit" class="btn-primary" style="margin-top:10px">+ Gerar Mensalidade</button>
                         </form>
                     </div>
-                    <div>
-                        <div class="admin-section-title">Mensalidades do Sistema (${installments.length})</div>
-                        <div class="company-list">
-                            ${installments.map(i => {
-                                let statusClass = 'gray';
-                                if (i.status === 'paga') statusClass = 'green';
-                                if (i.status === 'pendente') statusClass = 'yellow';
-                                if (i.status === 'atrasada') statusClass = 'red';
-                                if (i.status === 'agendada') statusClass = 'blue';
-
-                                return `
-                                    <div class="user-item">
-                                        <div class="user-item-info">
-                                            <div style="font-weight:700">${i.companies?.name || 'Empresa Excluída'}</div>
-                                            <div style="font-size:12px;color:var(--text-secondary)">Vence em: ${new Date(i.due_date).toLocaleDateString()}</div>
-                                            <div style="font-size:13px;font-weight:700;color:var(--primary-dark)">R$ ${parseFloat(i.amount).toFixed(2)}</div>
-                                        </div>
-                                        <span class="badge ${statusClass}">${i.status}</span>
-                                        <div style="display:flex; flex-direction:column; gap:4px">
-                                            <select style="font-size:11px;padding:3px" onchange="changeBillStatus('${i.id}', this.value)">
-                                                <option value="pendente" ${i.status === 'pendente'?'selected':''}>Pendente</option>
-                                                <option value="paga" ${i.status === 'paga'?'selected':''}>Paga</option>
-                                                <option value="atrasada" ${i.status === 'atrasada'?'selected':''}>Atrasada</option>
-                                                <option value="agendada" ${i.status === 'agendada'?'selected':''}>Agendada</option>
-                                            </select>
-                                            <button class="btn-delete" style="font-size:11px;padding:3px" onclick="deleteBill('${i.id}')">Excluir</button>
-                                        </div>
-                                    </div>`;
-                            }).join('')}
-                        </div>
+                    <div id="installments-list-col">
+                        <!-- Preenchido por filterInstallmentsList() -->
                     </div>
                 </div>`;
+
+            // Renderiza a lista da primeira empresa ao carregar
+            filterInstallmentsList(firstCompanyId);
+
         } catch (e) {
             el.innerHTML = `<div style="color:#ef4444;padding:24px">Erro ao carregar faturas de mensalidades.</div>`;
         }
@@ -1664,46 +1645,119 @@ async function deleteCompany(id, name) {
     } catch (e) {}
 }
 
+// Renderiza a lista de mensalidades filtrada pela empresa selecionada
+function filterInstallmentsList(companyId) {
+    const col = document.getElementById('installments-list-col');
+    if (!col) return;
+
+    const filtered = companyId
+        ? state.rootInstallments.filter(i => i.company_id === companyId)
+        : state.rootInstallments;
+
+    const company = state.rootCompanies.find(c => c.id === companyId);
+    const companyName = company ? company.name : 'Empresa';
+
+    if (filtered.length === 0) {
+        col.innerHTML = `
+            <div class="admin-section-title">Mensalidades — ${companyName} (0)</div>
+            <div style="color:var(--text-secondary);padding:24px;text-align:center;font-size:13px">Nenhuma mensalidade cadastrada para esta empresa.</div>`;
+        return;
+    }
+
+    col.innerHTML = `
+        <div class="admin-section-title">Mensalidades — ${companyName} (${filtered.length})</div>
+        <div class="company-list">
+            ${filtered.map(i => {
+                let statusClass = 'gray';
+                if (i.status === 'paga') statusClass = 'green';
+                if (i.status === 'pendente') statusClass = 'yellow';
+                if (i.status === 'atrasada') statusClass = 'red';
+                if (i.status === 'agendada') statusClass = 'blue';
+                return `
+                    <div class="user-item">
+                        <div class="user-item-info">
+                            <div style="font-weight:700">${i.companies?.name || companyName}</div>
+                            <div style="font-size:12px;color:var(--text-secondary)">Vence em: ${new Date(i.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</div>
+                            <div style="font-size:13px;font-weight:700;color:var(--primary-dark)">R$ ${parseFloat(i.amount).toFixed(2)}</div>
+                        </div>
+                        <span class="badge ${statusClass}">${i.status}</span>
+                        <div style="display:flex;flex-direction:column;gap:4px">
+                            <select style="font-size:11px;padding:3px" onchange="changeBillStatus('${i.id}', this.value, '${companyId}')">
+                                <option value="pendente" ${i.status==='pendente'?'selected':''}>Pendente</option>
+                                <option value="paga" ${i.status==='paga'?'selected':''}>Paga</option>
+                                <option value="atrasada" ${i.status==='atrasada'?'selected':''}>Atrasada</option>
+                                <option value="agendada" ${i.status==='agendada'?'selected':''}>Agendada</option>
+                            </select>
+                            <button class="btn-delete" style="font-size:11px;padding:3px" onclick="deleteBill('${i.id}', '${companyId}')">Excluir</button>
+                        </div>
+                    </div>`;
+            }).join('')}
+        </div>`;
+}
+
 async function handleGenerateBill(e) {
     e.preventDefault();
+    const companyId = document.getElementById('gb-company').value;
     const payload = {
-        company_id: document.getElementById('gb-company').value,
+        company_id: companyId,
         due_date: document.getElementById('gb-due').value,
         amount: parseFloat(document.getElementById('gb-amount').value),
         status: document.getElementById('gb-status').value
     };
 
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = 'Gerando...';
+
     try {
-        await apiFetch('/api/root/installments', {
+        const res = await apiFetch('/api/root/installments', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        showNotif('Sucesso', 'Mensalidade gerada com sucesso.');
-        renderRootTabContent();
+        const data = await res.json();
+        if (res.ok) {
+            showNotif('Sucesso', 'Mensalidade gerada com sucesso.');
+            // Recarrega as mensalidades e mantém a empresa selecionada
+            const iRes = await apiFetch('/api/root/installments');
+            state.rootInstallments = await iRes.json();
+            filterInstallmentsList(companyId);
+        } else {
+            showNotif('Erro ao gerar', data.error || 'Falha na requisição.', true);
+        }
     } catch (err) {
         showNotif('Erro', 'Não foi possível gerar mensalidade.', true);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '+ Gerar Mensalidade';
     }
 }
 
-async function changeBillStatus(id, status) {
+async function changeBillStatus(id, status, companyId) {
     try {
-        await apiFetch(`/api/root/installments/${id}`, {
+        const res = await apiFetch(`/api/root/installments/${id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status })
         });
-        showNotif('Sucesso', 'Status da mensalidade atualizado.');
-        renderRootTabContent();
+        if (res.ok) {
+            showNotif('Sucesso', 'Status atualizado.');
+            // Atualiza somente o item no state sem recarregar a página toda
+            const idx = state.rootInstallments.findIndex(i => i.id === id);
+            if (idx !== -1) state.rootInstallments[idx].status = status;
+            filterInstallmentsList(companyId || document.getElementById('gb-company')?.value);
+        }
     } catch (e) {}
 }
 
-async function deleteBill(id) {
+async function deleteBill(id, companyId) {
     if (!(await showConfirm('Confirmar Exclusão', 'Deseja excluir esta fatura de mensalidade?'))) return;
     try {
         await apiFetch(`/api/root/installments/${id}`, { method: 'DELETE' });
         showNotif('Sucesso', 'Mensalidade excluída.');
-        renderRootTabContent();
+        // Remove do state e re-renderiza sem recarregar tudo
+        state.rootInstallments = state.rootInstallments.filter(i => i.id !== id);
+        filterInstallmentsList(companyId || document.getElementById('gb-company')?.value);
     } catch (e) {}
 }
 
