@@ -12,6 +12,7 @@ const { Server } = require('socket.io');
 const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
 const path = require('path');
+const ws = require('ws');
 
 // Carrega .env manualmente se existir localmente (evita dependência externa em dev)
 const envPath = path.join(__dirname, '.env');
@@ -49,6 +50,9 @@ if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
     supabase = createClient(cleanUrl, SUPABASE_SERVICE_KEY, {
         auth: {
             persistSession: false
+        },
+        realtime: {
+            transport: ws
         }
     });
     console.log('[Supabase] Conectado com URL:', cleanUrl);
