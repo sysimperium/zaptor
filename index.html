@@ -3,416 +3,432 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ZapTor — WhatsApp Compartilhado</title>
-    <meta name="description" content="ZapTor: Plataforma de WhatsApp compartilhado para equipes." />
+    <title>ZappTor — WhatsApp Multi-Empresa</title>
+    <meta name="description" content="ZappTor: Plataforma de WhatsApp multi-empresa compartilhada." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
     <style>
-        /* ── Reset & Base ─────────────────────────────── */
+        /* ── Reset & Variáveis Premium ─────────────────── */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
-            --green: #25d366;
-            --green-dark: #128c7e;
-            --green-light: #dcf8c6;
-            --bg-app: #eae6df;
+            --primary: #128c7e;
+            --primary-dark: #075e54;
+            --primary-light: #25d366;
+            --accent: #34b7f1;
+            --bg-app: #f4f6f8;
+            --bg-card: #ffffff;
             --bg-sidebar: #ffffff;
-            --bg-header: #f0f2f5;
+            --bg-header: #f8fafc;
             --bg-msg-in: #ffffff;
-            --bg-msg-out: #d9fdd3;
-            --text-primary: #111b21;
-            --text-secondary: #54656f;
-            --text-light: #8696a0;
-            --border: #e9edef;
-            --shadow: 0 2px 24px rgba(0,0,0,.12);
-            --radius: 12px;
-            --font: 'Inter', system-ui, sans-serif;
+            --bg-msg-out: #e7f8f2;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --text-light: #94a3b8;
+            --border: #e2e8f0;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 20px -2px rgba(0,0,0,0.08);
+            --shadow-lg: 0 10px 30px -5px rgba(0,0,0,0.12);
+            --radius-sm: 8px;
+            --radius-md: 16px;
+            --radius-lg: 24px;
+            --font-head: 'Plus Jakarta Sans', sans-serif;
+            --font-body: 'Outfit', sans-serif;
         }
-        html, body { height: 100%; overflow: hidden; font-family: var(--font); background: var(--bg-app); color: var(--text-primary); }
-        button { cursor: pointer; font-family: var(--font); border: none; background: none; }
-        input { font-family: var(--font); }
+        
+        html, body { height: 100%; overflow: hidden; font-family: var(--font-body); background: var(--bg-app); color: var(--text-primary); }
+        button { cursor: pointer; font-family: var(--font-body); border: none; background: none; transition: all 0.2s ease; }
+        input, select, textarea { font-family: var(--font-body); }
         a { color: inherit; text-decoration: none; }
         svg { display: block; flex-shrink: 0; }
-        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Helper Classes */
+        .hidden { display: none !important; }
+        .flex { display: flex; }
+        .gap-2 { gap: 8px; }
+        .gap-4 { gap: 16px; }
+        .mt-4 { margin-top: 16px; }
+        .text-xs { font-size: 12px; }
+        .text-muted { color: var(--text-light); }
 
         /* ── Views ────────────────────────────────────── */
         .view { display: none; position: fixed; inset: 0; }
         .view.active { display: flex; }
 
-        /* ── Loading ──────────────────────────────────── */
-        #view-loading { align-items: center; justify-content: center; flex-direction: column; gap: 20px; background: var(--bg-app); }
-        .loader-logo { width: 72px; height: 72px; background: var(--green); border-radius: 50%; display: flex; align-items: center; justify-content: center; animation: pulse 2s ease-in-out infinite; }
-        .loader-logo svg { color: white; }
-        @keyframes pulse { 0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(37,211,102,.4)} 50%{transform:scale(1.05);box-shadow:0 0 0 16px rgba(37,211,102,0)} }
-        .loader-text { font-size: 14px; color: var(--text-secondary); font-weight: 500; }
+        /* ── Loading Screen ───────────────────────────── */
+        #view-loading { align-items: center; justify-content: center; flex-direction: column; gap: 24px; background: #ffffff; }
+        .loader-logo-wrap { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+        .loader-logo-img { width: 140px; height: auto; object-fit: contain; }
+        .loader-text { font-size: 15px; color: var(--text-secondary); font-weight: 500; letter-spacing: 0.5px; }
 
         /* ── QR View ──────────────────────────────────── */
-        #view-qr { align-items: center; justify-content: center; background: var(--bg-app); }
+        #view-qr { align-items: center; justify-content: center; background: radial-gradient(circle at top right, #e8f5e9, #eceff1); }
         .qr-card {
-            background: white; border-radius: 20px; padding: 40px; box-shadow: var(--shadow);
-            display: flex; flex-direction: column; align-items: center; gap: 20px;
-            max-width: 420px; width: 90%; text-align: center;
+            background: var(--bg-card); border-radius: var(--radius-lg); padding: 48px; box-shadow: var(--shadow-lg);
+            display: flex; flex-direction: column; align-items: center; gap: 24px;
+            max-width: 440px; width: 92%; text-align: center; border: 1px solid rgba(255,255,255,0.8);
         }
-        .qr-card h2 { font-size: 22px; font-weight: 700; }
+        .qr-card h2 { font-family: var(--font-head); font-size: 24px; font-weight: 800; color: var(--primary-dark); }
         .qr-card p { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
-        #qr-image { width: 240px; height: 240px; border-radius: 12px; border: 4px solid var(--border); object-fit: contain; }
-        .qr-waiting { width: 240px; height: 240px; border-radius: 12px; border: 4px dashed var(--border); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text-light); font-size: 13px; }
-        .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin .8s linear infinite; }
+        #qr-image { width: 260px; height: 260px; border-radius: var(--radius-md); border: 4px solid var(--border); object-fit: contain; background: #fff; }
+        .qr-waiting { width: 260px; height: 260px; border-radius: var(--radius-md); border: 4px dashed var(--border); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; color: var(--text-light); font-size: 14px; background: #fafafa; }
+        .spinner { width: 36px; height: 36px; border: 3px solid #f1f5f9; border-top-color: var(--primary-light); border-radius: 50%; animation: spin .8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; }
-        .status-badge.connected { background: #e8f9ef; color: #1a7a3f; }
-        .status-badge.disconnected { background: #fef0f0; color: #c0392b; }
-        .status-badge.loading { background: #fff8e1; color: #e67e22; }
+        
+        .status-badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 700; text-transform: uppercase; }
+        .status-badge.connected { background: #d1fae5; color: #065f46; }
+        .status-badge.disconnected { background: #fee2e2; color: #991b1b; }
+        .status-badge.loading { background: #fef3c7; color: #92400e; }
         .dot { width: 8px; height: 8px; border-radius: 50%; }
-        .dot.green { background: var(--green); }
-        .dot.red { background: #e74c3c; }
-        .dot.yellow { background: #f39c12; animation: blink 1s step-start infinite; }
+        .dot.green { background: var(--primary-light); }
+        .dot.red { background: #ef4444; }
+        .dot.yellow { background: #f59e0b; animation: blink 1s step-start infinite; }
         @keyframes blink { 50% { opacity: 0; } }
 
         /* ── Login View ───────────────────────────────── */
-        #view-login { align-items: center; justify-content: center; background: var(--bg-app); }
+        #view-login { align-items: center; justify-content: center; background: linear-gradient(135deg, #e8f0fe 0%, #e2e8f0 100%); }
         .login-card {
-            background: white; border-radius: 24px; padding: 48px 40px; box-shadow: var(--shadow);
-            width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 28px;
+            background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(16px);
+            border-radius: var(--radius-lg); padding: 48px; box-shadow: var(--shadow-lg);
+            width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
         }
-        .login-header { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
-        .login-icon { width: 68px; height: 68px; background: linear-gradient(135deg, var(--green), var(--green-dark)); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        .login-icon svg { color: white; }
-        .login-header h1 { font-size: 26px; font-weight: 800; }
+        .login-header { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+        .login-logo { width: 150px; height: auto; margin-bottom: 8px; }
+        .login-header h1 { font-family: var(--font-head); font-size: 28px; font-weight: 800; color: var(--primary-dark); }
         .login-header p { font-size: 14px; color: var(--text-secondary); }
-        .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
-        .form-group input {
-            width: 100%; padding: 14px 16px; border: 2px solid var(--border); border-radius: 12px;
-            font-size: 15px; outline: none; transition: border-color .2s, box-shadow .2s;
-            background: #f8f9fa;
+        
+        .login-tabs { display: flex; background: #e2e8f0; padding: 4px; border-radius: var(--radius-sm); }
+        .login-tab { flex: 1; text-align: center; padding: 10px; font-size: 13px; font-weight: 700; border-radius: var(--radius-sm); color: var(--text-secondary); }
+        .login-tab.active { background: white; color: var(--primary-dark); box-shadow: var(--shadow-sm); }
+
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group label { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+        .form-group input, .form-group select {
+            width: 100%; padding: 12px 16px; border: 2px solid var(--border); border-radius: var(--radius-sm);
+            font-size: 14px; outline: none; transition: all .2s;
+            background: #fff; color: var(--text-primary);
         }
-        .form-group input:focus { border-color: var(--green); box-shadow: 0 0 0 4px rgba(37,211,102,.12); background: white; }
+        .form-group input:focus, .form-group select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(18,140,126,0.15); }
+        
         .btn-primary {
-            width: 100%; padding: 15px; background: linear-gradient(135deg, var(--green), var(--green-dark));
-            color: white; border-radius: 12px; font-size: 15px; font-weight: 700;
+            width: 100%; padding: 14px; background: linear-gradient(135deg, var(--primary-light), var(--primary));
+            color: white; border-radius: var(--radius-sm); font-size: 15px; font-weight: 700;
             display: flex; align-items: center; justify-content: center; gap: 8px;
-            transition: opacity .2s, transform .1s; box-shadow: 0 4px 16px rgba(37,211,102,.35);
+            box-shadow: 0 4px 14px rgba(37,211,102,0.3); border: none;
         }
-        .btn-primary:hover:not(:disabled) { opacity: .92; transform: translateY(-1px); }
+        .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(37,211,102,0.4); opacity: 0.95; }
         .btn-primary:active:not(:disabled) { transform: translateY(0); }
-        .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
-        .error-msg { background: #fef0f0; color: #c0392b; border-radius: 10px; padding: 12px 16px; font-size: 13px; font-weight: 500; display: none; }
+        .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+
+        .error-msg { background: #fee2e2; color: #b91c1c; border-radius: var(--radius-sm); padding: 12px 16px; font-size: 13px; font-weight: 600; display: none; border: 1px solid #fca5a5; }
         .error-msg.show { display: block; }
-        .login-footer { text-align: center; font-size: 12px; color: var(--text-light); }
-        .link-admin { color: var(--green-dark); font-weight: 600; cursor: pointer; }
+        .login-footer { text-align: center; font-size: 13px; color: var(--text-light); margin-top: 8px; }
+        .link-admin { color: var(--primary-dark); font-weight: 700; cursor: pointer; }
         .link-admin:hover { text-decoration: underline; }
 
         /* ── Chat View ────────────────────────────────── */
-        #view-chat { flex-direction: row; overflow: hidden; }
+        #view-chat { flex-direction: row; overflow: hidden; background: #efeae2; }
 
         /* Sidebar */
         .sidebar {
-            width: 360px; min-width: 260px; max-width: 400px; background: var(--bg-sidebar);
+            width: 380px; min-width: 320px; max-width: 420px; background: var(--bg-sidebar);
             display: flex; flex-direction: column; border-right: 1px solid var(--border);
-            height: 100%;
+            height: 100%; z-index: 10;
         }
         @media (max-width: 768px) { .sidebar { width: 100%; max-width: 100%; } }
 
         .sidebar-header {
-            padding: 12px 16px; background: var(--bg-header);
-            display: flex; align-items: center; justify-content: space-between; min-height: 60px;
+            padding: 16px; background: var(--bg-header);
+            display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border);
         }
-        .sidebar-user { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+        .sidebar-user { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
         .avatar { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: white; flex-shrink: 0; overflow: hidden; }
         .avatar.sm { width: 36px; height: 36px; font-size: 13px; }
-        .avatar.md { width: 48px; height: 48px; font-size: 16px; }
-        .avatar.lg { width: 52px; height: 52px; font-size: 18px; }
+        .avatar.md { width: 44px; height: 44px; font-size: 15px; }
+        .avatar.lg { width: 56px; height: 56px; font-size: 18px; }
         .avatar img { width: 100%; height: 100%; object-fit: cover; }
-        .avatar-bg { background: linear-gradient(135deg, #06cf9c, var(--green-dark)); }
-        .avatar-bg-blue { background: linear-gradient(135deg, #6c63ff, #4a90d9); }
-        .user-name { font-weight: 600; font-size: 15px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .user-role { font-size: 11px; color: var(--text-light); }
-        .icon-btn { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); transition: background .15s; }
-        .icon-btn:hover { background: rgba(0,0,0,.07); }
+        .avatar-bg { background: linear-gradient(135deg, var(--primary-light), var(--primary-dark)); }
+        
+        .user-name { font-weight: 700; font-size: 15px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .user-role { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; }
+        .role-badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+        .role-badge.admin { background: #dbeafe; color: #1e40af; }
+        .role-badge.root { background: #f3e8ff; color: #6b21a8; }
+        .role-badge.user { background: #f1f5f9; color: #475569; }
+
+        .icon-btn { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); transition: all 0.2s; border: none; }
+        .icon-btn:hover { background: #e2e8f0; color: var(--text-primary); }
 
         .connection-bar {
-            padding: 6px 16px; font-size: 12px; font-weight: 600;
+            padding: 8px 16px; font-size: 12px; font-weight: 700;
             display: flex; align-items: center; justify-content: center; gap: 6px;
-            transition: background .3s;
+            border-bottom: 1px solid var(--border);
         }
-        .connection-bar.connected { background: #e8f9ef; color: #1a7a3f; }
-        .connection-bar.disconnected { background: #fef0f0; color: #c0392b; }
-        .connection-bar.loading { background: #fff8e1; color: #a57c00; }
+        .connection-bar.connected { background: #ecfdf5; color: #065f46; }
+        .connection-bar.disconnected { background: #fef2f2; color: #991b1b; }
+        .connection-bar.loading { background: #fffbeb; color: #92400e; }
 
-        .search-bar { padding: 8px 12px; background: white; border-bottom: 1px solid var(--border); }
-        .search-input-wrap { background: var(--bg-header); border-radius: 8px; display: flex; align-items: center; padding: 8px 12px; gap: 8px; }
+        .search-bar { padding: 12px; background: white; border-bottom: 1px solid var(--border); }
+        .search-input-wrap { background: #f1f5f9; border-radius: var(--radius-sm); display: flex; align-items: center; padding: 8px 12px; gap: 8px; border: 1px solid transparent; }
+        .search-input-wrap:focus-within { border-color: var(--primary); background: white; }
         .search-input-wrap input { flex: 1; border: none; background: none; outline: none; font-size: 14px; color: var(--text-primary); }
         .search-input-wrap input::placeholder { color: var(--text-light); }
 
-        .filter-tabs { display: flex; padding: 4px 12px; gap: 4px; border-bottom: 1px solid var(--border); }
-        .filter-tab { padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--text-secondary); transition: background .15s, color .15s; }
-        .filter-tab:hover { background: var(--bg-header); }
-        .filter-tab.active { background: #e8f9ef; color: var(--green-dark); }
+        .sidebar-tabs { display: flex; border-bottom: 1px solid var(--border); background: white; }
+        .sidebar-tab { flex: 1; padding: 12px; font-size: 13px; font-weight: 700; text-align: center; color: var(--text-secondary); border-bottom: 3px solid transparent; }
+        .sidebar-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
 
-        .chat-list { flex: 1; overflow-y: auto; }
+        .chat-list { flex: 1; overflow-y: auto; background: white; }
         .chat-item {
-            display: flex; align-items: center; gap: 12px; padding: 12px 16px;
-            cursor: pointer; transition: background .15s; border-bottom: 1px solid var(--border);
-            position: relative;
+            display: flex; align-items: center; padding: 12px 16px; gap: 12px; border-bottom: 1px solid #f8fafc;
+            cursor: pointer; transition: background .15s;
         }
-        .chat-item:hover { background: var(--bg-header); }
-        .chat-item.active { background: #f0f2f5; }
-        .chat-info { flex: 1; min-width: 0; }
-        .chat-name { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .chat-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 3px; }
-        .chat-time { font-size: 11px; color: var(--text-light); flex-shrink: 0; }
-        .chat-preview { font-size: 13px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
-        .unread-badge { background: var(--green); color: white; border-radius: 999px; min-width: 20px; height: 20px; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 5px; flex-shrink: 0; }
-        .unread-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
-        .mark-unread-btn { position: absolute; right: 16px; bottom: 12px; opacity: 0; color: var(--text-light); transition: opacity .15s; }
-        .chat-item:hover .mark-unread-btn { opacity: 1; }
-        .mark-unread-btn:hover { color: var(--green-dark); }
+        .chat-item:hover { background: #f8fafc; }
+        .chat-item.active { background: #f1f5f9; }
+        .chat-item-body { flex: 1; min-width: 0; }
+        .chat-item-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+        .chat-item-name { font-weight: 700; font-size: 14px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .chat-item-time { font-size: 11px; color: var(--text-light); }
+        .chat-item-preview { font-size: 13px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .unread-badge { background: var(--primary-light); color: white; min-width: 18px; height: 18px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; padding: 0 4px; }
 
-        .empty-list { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; color: var(--text-light); gap: 8px; font-size: 14px; }
-        .loading-list { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; gap: 12px; color: var(--text-secondary); font-size: 14px; }
-
-        /* Main Chat Area */
-        .chat-area {
-            flex: 1; display: flex; flex-direction: column; background: var(--bg-app);
-            position: relative; overflow: hidden;
+        /* Block Screen for Unconnected regular users */
+        .block-screen {
+            position: absolute; inset: 0; background: rgba(255,255,255,0.95);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 32px; text-align: center; z-index: 100; gap: 20px;
         }
-        @media (max-width: 768px) { .chat-area { display: none; } .chat-area.mobile-open { display: flex; position: fixed; inset: 0; z-index: 50; } }
+        .block-screen-icon { width: 80px; height: 80px; background: #fff1f2; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #e11d48; border: 2px solid #fda4af; }
+        .block-screen h3 { font-family: var(--font-head); font-size: 20px; font-weight: 800; color: var(--text-primary); }
+        .block-screen p { font-size: 14px; color: var(--text-secondary); max-width: 320px; line-height: 1.6; }
 
-        /* WhatsApp-like pattern background */
-        .chat-area::before {
-            content: ''; position: absolute; inset: 0; opacity: .04; pointer-events: none;
-            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        /* Chat Area */
+        .chat-area { flex: 1; display: flex; flex-direction: column; height: 100%; position: relative; }
+        .chat-placeholder {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 16px; background: #f8fafc; text-align: center; color: var(--text-light);
         }
+        .chat-placeholder-logo { width: 180px; height: auto; opacity: 0.65; margin-bottom: 8px; }
+        .chat-placeholder h2 { font-family: var(--font-head); font-size: 22px; font-weight: 800; color: var(--text-secondary); }
+        .chat-placeholder p { font-size: 14px; max-width: 360px; line-height: 1.6; }
 
         .chat-header {
-            background: var(--bg-header); padding: 10px 20px; display: flex; align-items: center;
-            justify-content: space-between; z-index: 10; min-height: 60px;
-            border-bottom: 1px solid var(--border); gap: 12px;
+            padding: 10px 16px; background: var(--bg-header); border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between; min-height: 60px;
         }
-        .chat-header-info { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
-        .back-btn { display: none; }
-        @media (max-width: 768px) { .back-btn { display: flex !important; } }
-        .chat-header-name { font-weight: 700; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .chat-header-info { display: flex; align-items: center; gap: 12px; }
+        .chat-header-title { font-weight: 700; font-size: 15px; color: var(--text-primary); }
+        .chat-header-subtitle { font-size: 12px; color: var(--text-secondary); }
 
-        .messages-wrap { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 4px; z-index: 1; }
-
-        .msg-row { display: flex; margin-bottom: 2px; }
-        .msg-row.out { justify-content: flex-end; }
-        .msg-row.in { justify-content: flex-start; }
-
-        .msg-bubble {
-            max-width: 75%; border-radius: 8px; padding: 6px 10px 20px; position: relative;
-            box-shadow: 0 1px 2px rgba(0,0,0,.08); min-width: 80px;
+        .messages-container {
+            flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 12px;
+            background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');
+            background-color: #efeae2; background-blend-mode: overlay;
         }
-        .msg-row.out .msg-bubble { background: var(--bg-msg-out); border-top-right-radius: 2px; }
-        .msg-row.in .msg-bubble { background: var(--bg-msg-in); border-top-left-radius: 2px; }
+        .message-bubble {
+            max-width: 65%; padding: 8px 12px 6px 12px; border-radius: var(--radius-sm); font-size: 14px; line-height: 1.5;
+            position: relative; display: flex; flex-direction: column;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+        }
+        .message-bubble.incoming { background: var(--bg-msg-in); align-self: flex-start; border-top-left-radius: 0; }
+        .message-bubble.outgoing { background: var(--bg-msg-out); align-self: flex-end; border-top-right-radius: 0; }
+        
+        .msg-sender { font-weight: 700; font-size: 11px; margin-bottom: 3px; }
+        .msg-sender.admin { color: #2563eb; }
+        .msg-sender.user { color: #0d9488; }
+        
+        .msg-body { white-space: pre-wrap; word-break: break-word; color: #1e293b; }
+        
+        .msg-meta { font-size: 9px; color: var(--text-light); align-self: flex-end; margin-top: 4px; display: flex; align-items: center; gap: 3px; }
+        .msg-media { border-radius: 6px; overflow: hidden; margin-bottom: 6px; cursor: pointer; max-width: 100%; max-height: 240px; display: flex; align-items: center; justify-content: center; background: #e2e8f0; position: relative; }
+        .msg-media img { width: 100%; height: 100%; object-fit: cover; }
+        .msg-media-video { width: 100%; max-height: 240px; outline: none; }
+        .msg-media-doc { display: flex; align-items: center; gap: 8px; padding: 12px; background: rgba(0,0,0,0.03); border-radius: 6px; width: 100%; }
 
-        .msg-sender { font-size: 12px; font-weight: 700; color: var(--green-dark); margin-bottom: 2px; }
-        .msg-sender.other { color: #9c27b0; }
-        .msg-body { font-size: 14.5px; line-height: 1.45; word-break: break-word; white-space: pre-wrap; }
-        .msg-body strong { font-weight: 700; }
-        .msg-time { font-size: 10px; color: var(--text-light); position: absolute; bottom: 4px; right: 8px; }
-
-        .msg-media-loading { font-size: 12px; color: var(--text-light); font-style: italic; display: flex; align-items: center; gap: 6px; }
-        .msg-media-loading .mini-spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin .7s linear infinite; }
-        .msg-img { max-width: 260px; border-radius: 6px; cursor: pointer; display: block; margin-bottom: 4px; }
-        .msg-video { max-width: 260px; border-radius: 6px; display: block; margin-bottom: 4px; }
-        .msg-audio { max-width: 220px; height: 36px; display: block; margin-bottom: 4px; }
-        .msg-file { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,.05); border-radius: 8px; padding: 8px 10px; margin-bottom: 4px; text-decoration: none; max-width: 240px; }
-        .msg-file span { font-size: 13px; color: #2563eb; text-decoration: underline; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
-        .msg-call { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-style: italic; font-size: 14px; background: rgba(0,0,0,.04); border-radius: 8px; padding: 8px 10px; margin-bottom: 4px; }
-
-        /* Input area */
-        .input-area { background: var(--bg-header); padding: 10px 16px; z-index: 10; border-top: 1px solid var(--border); }
-        .file-preview { background: white; border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); }
-        .file-preview img { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
-        .file-preview-icon { width: 40px; height: 40px; background: var(--bg-header); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); }
-        .file-preview-name { flex: 1; font-size: 13px; font-weight: 500; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .file-preview-remove { color: var(--text-secondary); transition: color .15s; }
-        .file-preview-remove:hover { color: #e74c3c; }
-        .input-row { display: flex; align-items: center; gap: 8px; }
-        .msg-input-wrap { flex: 1; background: white; border-radius: 24px; display: flex; align-items: center; padding: 4px 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-        .msg-input { flex: 1; border: none; outline: none; font-size: 15px; padding: 8px 4px; color: var(--text-primary); background: none; resize: none; max-height: 80px; }
-        .msg-input::placeholder { color: var(--text-light); }
-        .send-btn { width: 48px; height: 48px; border-radius: 50%; background: var(--green); color: white; display: flex; align-items: center; justify-content: center; transition: background .15s, transform .1s; box-shadow: 0 2px 8px rgba(37,211,102,.4); flex-shrink: 0; }
-        .send-btn:hover:not(:disabled) { background: var(--green-dark); transform: scale(1.05); }
-        .send-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
-        .attach-btn { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); transition: background .15s; }
-        .attach-btn:hover { background: rgba(0,0,0,.07); }
-        .attach-btn:disabled { opacity: .45; cursor: not-allowed; }
-
-        /* Welcome screen */
-        .welcome-screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center; z-index: 1; }
-        .welcome-logo { width: 160px; height: 160px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 32px rgba(0,0,0,.1); margin-bottom: 28px; }
-        .welcome-logo img { width: 100px; opacity: .3; filter: grayscale(1); }
-        .welcome-screen h2 { font-size: 28px; font-weight: 300; color: var(--text-secondary); margin-bottom: 8px; }
-        .welcome-screen p { font-size: 14px; color: var(--text-light); max-width: 340px; line-height: 1.7; }
-        .welcome-sig { margin-top: 20px; font-size: 13px; color: var(--text-secondary); background: white; padding: 8px 16px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-
-        /* ── Admin Panel ──────────────────────────────── */
-        #view-admin, #view-root { background: rgba(0,0,0,.6); align-items: center; justify-content: center; z-index: 100; }
+        .chat-footer {
+            padding: 12px 16px; background: var(--bg-header); border-top: 1px solid var(--border);
+            display: flex; align-items: center; gap: 12px; position: relative;
+        }
+        .chat-input-wrap { flex: 1; background: white; border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; align-items: center; padding: 6px 12px; gap: 8px; }
+        .chat-input-wrap input { flex: 1; border: none; background: none; outline: none; font-size: 14px; padding: 6px 0; }
+        
+        /* ── Modais / Overlays Dashboards ──────────────── */
+        .admin-overlay {
+            position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(8px);
+            z-index: 100; display: none; align-items: center; justify-content: center; padding: 20px;
+        }
+        .admin-overlay.active { display: flex; }
         .admin-modal {
-            background: white; border-radius: 20px; width: 100%; max-width: 540px; max-height: 85vh;
-            display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 16px 64px rgba(0,0,0,.25);
-            margin: 20px;
+            background: white; border-radius: var(--radius-lg); width: 100%; max-width: 900px; height: 85vh;
+            box-shadow: var(--shadow-lg); display: flex; flex-direction: column; overflow: hidden;
+            animation: modalSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            border: 1px solid var(--border);
         }
-        .admin-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-        .admin-header h2 { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-        .admin-body { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
-        .admin-section-title { font-size: 12px; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 8px; }
-        .admin-add-form { display: flex; gap: 8px; }
-        .admin-add-form input { flex: 1; padding: 10px 14px; border: 2px solid var(--border); border-radius: 10px; font-size: 14px; outline: none; transition: border-color .2s; }
-        .admin-add-form input:focus { border-color: var(--green); }
-        .btn-add { padding: 10px 16px; background: var(--green); color: white; border-radius: 10px; font-weight: 600; font-size: 14px; white-space: nowrap; transition: background .15s; }
-        .btn-add:hover { background: var(--green-dark); }
-        .btn-add:disabled { opacity: .5; cursor: not-allowed; }
-        .user-list { display: flex; flex-direction: column; gap: 8px; }
-        .user-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border); }
-        .user-item .user-item-name { flex: 1; font-weight: 500; font-size: 14px; }
-        .user-item .user-item-role { font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
-        .role-admin { background: #e8f0fe; color: #1a56db; }
-        .role-user { background: #f0f2f5; color: #54656f; }
-        .user-item-inactive .user-item-name { color: var(--text-light); text-decoration: line-through; }
-        .btn-toggle { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px; transition: background .15s; }
-        .btn-toggle.enable { background: #e8f9ef; color: #1a7a3f; }
-        .btn-toggle.disable { background: #fff0f0; color: #c0392b; }
-        .btn-delete { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--text-light); transition: background .15s, color .15s; }
-        .btn-delete:hover { background: #fff0f0; color: #c0392b; }
-        .admin-login-wrap { display: flex; flex-direction: column; gap: 16px; align-items: center; padding: 20px; }
-        .admin-login-wrap h3 { font-size: 16px; font-weight: 600; }
-        .admin-login-wrap input { width: 100%; padding: 12px 16px; border: 2px solid var(--border); border-radius: 10px; font-size: 14px; outline: none; transition: border-color .2s; }
-        .admin-login-wrap input:focus { border-color: var(--green); }
-        .admin-whatsapp-info { background: var(--bg-header); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 4px; }
-        .admin-whatsapp-info .label { font-size: 12px; color: var(--text-light); }
-        .admin-whatsapp-info .value { font-size: 14px; font-weight: 600; }
+        @keyframes modalSlide { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-        /* ── Notifications ────────────────────────────── */
-        #notif-container { position: fixed; top: 16px; right: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
-        .notif {
-            background: white; border-radius: 12px; box-shadow: var(--shadow); padding: 12px 16px;
-            display: flex; align-items: flex-start; gap: 10px; max-width: 320px;
-            animation: slideIn .3s ease; border-left: 4px solid var(--green);
+        .admin-header {
+            padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;
+            background: #f8fafc;
         }
-        .notif.error { border-left-color: #e74c3c; }
-        @keyframes slideIn { from { opacity: 0; transform: translateX(100%); } }
-        .notif-icon { width: 36px; height: 36px; border-radius: 50%; background: var(--green-light); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .notif-icon.error { background: #fef0f0; }
-        .notif-body { flex: 1; }
-        .notif-title { font-weight: 700; font-size: 13px; margin-bottom: 2px; }
-        .notif-text { font-size: 12px; color: var(--text-secondary); }
-        .notif-close { color: var(--text-light); font-size: 18px; line-height: 1; flex-shrink: 0; padding: 0 2px; }
-        .notif-close:hover { color: var(--text-primary); }
+        .admin-header h2 { font-family: var(--font-head); font-size: 20px; font-weight: 800; color: var(--primary-dark); display: flex; align-items: center; gap: 10px; }
+        
+        .admin-container { flex: 1; display: flex; overflow: hidden; }
+        
+        /* Sidebar do painel */
+        .admin-nav { width: 220px; border-right: 1px solid var(--border); background: #f8fafc; padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+        .admin-nav-item {
+            width: 100%; text-align: left; padding: 12px 16px; border-radius: var(--radius-sm);
+            font-size: 14px; font-weight: 700; color: var(--text-secondary); display: flex; align-items: center; gap: 10px;
+        }
+        .admin-nav-item:hover { background: #f1f5f9; color: var(--text-primary); }
+        .admin-nav-item.active { background: var(--primary); color: white; }
 
-        /* ── Utilities ────────────────────────────────── */
-        .hidden { display: none !important; }
-        .flex { display: flex; }
-        .items-center { align-items: center; }
-        .gap-2 { gap: 8px; }
-        .ml-auto { margin-left: auto; }
-        .text-sm { font-size: 13px; }
-        .text-xs { font-size: 11px; }
-        .font-bold { font-weight: 700; }
-        .text-green { color: var(--green-dark); }
-        .text-muted { color: var(--text-light); }
-        .w-full { width: 100%; }
-        .mt-4 { margin-top: 16px; }
-        .sound-toggle { font-size: 20px; cursor: pointer; opacity: .7; transition: opacity .15s; user-select: none; }
-        .sound-toggle:hover { opacity: 1; }
+        /* Conteúdo do painel */
+        .admin-body { flex: 1; overflow-y: auto; padding: 32px; display: flex; flex-direction: column; gap: 24px; }
+        .admin-section-title { font-family: var(--font-head); font-size: 18px; font-weight: 800; color: var(--text-primary); border-bottom: 2px solid var(--border); padding-bottom: 8px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+        
+        /* Formulários e Tabelas */
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+        
+        .user-list, .company-list { display: flex; flex-direction: column; gap: 10px; }
+        .user-item {
+            display: flex; align-items: center; padding: 12px 18px; border: 1px solid var(--border); border-radius: var(--radius-md);
+            gap: 12px; background: #fff; transition: box-shadow 0.2s;
+        }
+        .user-item:hover { box-shadow: var(--shadow-sm); }
+        .user-item-name { font-weight: 700; font-size: 14px; flex: 1; }
+        .user-item-info { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+        
+        .badge { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .badge.green { background: #d1fae5; color: #065f46; }
+        .badge.yellow { background: #fef3c7; color: #92400e; }
+        .badge.red { background: #fee2e2; color: #991b1b; }
+        .badge.blue { background: #dbeafe; color: #1e40af; }
+        .badge.gray { background: #f1f5f9; color: #475569; }
+
+        .btn-toggle { padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; }
+        .btn-toggle.enable { background: #d1fae5; color: #065f46; }
+        .btn-toggle.disable { background: #fee2e2; color: #991b1b; }
+        .btn-delete { color: #ef4444; padding: 6px; border-radius: 6px; }
+        .btn-delete:hover { background: #fee2e2; }
+        
+        /* Plan limit progress bar */
+        .limit-bar { background: #e2e8f0; height: 6px; border-radius: 3px; overflow: hidden; margin-top: 4px; }
+        .limit-progress { height: 100%; background: var(--primary); transition: width 0.3s; }
+
+        .admin-whatsapp-card { background: #f8fafc; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 24px; display: flex; align-items: center; gap: 24px; }
+        .admin-whatsapp-qr { display: flex; flex-direction: column; align-items: center; gap: 8px; background: white; padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border); }
+        
+        .notification-banner {
+            position: fixed; top: 20px; right: 20px; background: white; border-radius: var(--radius-md);
+            padding: 16px 20px; box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 12px;
+            z-index: 1000; transform: translateX(200px); opacity: 0; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            border-left: 5px solid var(--primary-light); max-width: 320px;
+        }
+        .notification-banner.active { transform: translateX(0); opacity: 1; }
+        .notification-banner.error { border-left-color: #ef4444; }
+
+        /* File Preview styling */
+        .file-preview { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: #f1f5f9; border-radius: 8px; margin-top: 8px; max-width: 300px; border: 1px solid var(--border); }
+        .file-preview-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
+        .file-preview-icon { width: 40px; height: 40px; background: #e2e8f0; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: var(--text-secondary); }
     </style>
 </head>
 <body>
 
 <!-- ═══════════════════════════════════════════════
-     NOTIFICATION CONTAINER
-═══════════════════════════════════════════════ -->
-<div id="notif-container"></div>
-
-<!-- ═══════════════════════════════════════════════
-     VIEW: LOADING
-═══════════════════════════════════════════════ -->
+     VIEW: LOADING SCREEN
+     ═══════════════════════════════════════════════ -->
 <div id="view-loading" class="view active">
-    <div class="loader-logo">
-        <!-- WhatsApp-like icon -->
-        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-    </div>
-    <div class="loader-text" id="loading-text">Conectando ao servidor...</div>
-</div>
-
-<!-- ═══════════════════════════════════════════════
-     VIEW: QR CODE
-═══════════════════════════════════════════════ -->
-<div id="view-qr" class="view">
-    <div class="qr-card">
-        <div>
-            <span class="status-badge loading" id="qr-status-badge">
-                <span class="dot yellow"></span>
-                <span>Aguardando escaneio</span>
-            </span>
-        </div>
-        <h2>Conectar WhatsApp</h2>
-        <p>Abra o WhatsApp no celular →<br><strong>Dispositivos Conectados → Conectar dispositivo</strong><br>e escaneie o QR Code abaixo.</p>
-        <div id="qr-container">
-            <div class="qr-waiting" id="qr-waiting">
-                <div class="spinner"></div>
-                <span>Gerando QR Code...</span>
-            </div>
-            <img id="qr-image" class="hidden" alt="QR Code" />
-        </div>
-        <p class="text-xs text-muted">O QR atualiza automaticamente. Não feche esta tela.</p>
+    <div class="loader-logo-wrap">
+        <img class="loader-logo-img" src="imgs/Logo.png" alt="ZappTor Logo" onerror="this.src='https://raw.githubusercontent.com/wppconnect-team/wa-version/main/wa-version.png'" />
+        <div class="spinner"></div>
+        <div class="loader-text" id="loading-text">Conectando ao servidor...</div>
     </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════
      VIEW: LOGIN
-═══════════════════════════════════════════════ -->
+     ═══════════════════════════════════════════════ -->
 <div id="view-login" class="view">
     <div class="login-card">
         <div class="login-header">
-            <div class="login-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            </div>
-            <h1>ZapTor</h1>
-            <p>Informe seu nome para entrar</p>
+            <img class="login-logo" src="imgs/Logo.png" alt="ZappTor Logo" onerror="this.src='https://raw.githubusercontent.com/wppconnect-team/wa-version/main/wa-version.png'" />
+            <h1>ZappTor</h1>
+            <p>Seja bem-vindo de volta!</p>
         </div>
+        
+        <div class="login-tabs">
+            <button class="login-tab active" id="tab-login-empresa" onclick="toggleLoginType('company')">Empresa</button>
+            <button class="login-tab" id="tab-login-root" onclick="toggleLoginType('root')">Root Administrador</button>
+        </div>
+
         <form id="login-form" onsubmit="handleLogin(event)">
-            <div class="form-group">
-                <label for="login-name">Seu nome (conforme cadastrado)</label>
-                <input id="login-name" type="text" placeholder="Ex: João (Vendas)" autocomplete="off" required />
+            <!-- Campos para login de empresa -->
+            <div id="company-login-fields" style="display:flex; flex-direction:column; gap:16px;">
+                <div class="form-group">
+                    <label for="login-slug">Código da Empresa (Slug)</label>
+                    <input id="login-slug" type="text" placeholder="Ex: minha-empresa" autocomplete="off" />
+                </div>
+                <div class="form-group">
+                    <label for="login-name">Nome do Usuário</label>
+                    <input id="login-name" type="text" placeholder="Ex: João (Vendas)" autocomplete="off" />
+                </div>
             </div>
+
+            <!-- Campos para login de Root -->
+            <div id="root-login-fields" class="hidden" style="display:flex; flex-direction:column; gap:16px;">
+                <div class="form-group">
+                    <label for="login-root-email">E-mail do Root (Supabase Auth)</label>
+                    <input id="login-root-email" type="email" placeholder="root@suaempresa.com" autocomplete="off" />
+                </div>
+            </div>
+
+            <div class="form-group mt-4">
+                <label for="login-password">Senha de Acesso</label>
+                <input id="login-password" type="password" placeholder="Sua senha secreta" required />
+            </div>
+
             <div class="error-msg" id="login-error"></div>
+            
             <button type="submit" class="btn-primary mt-4" id="login-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
-                <span>Entrar no ZapTor</span>
+                <span>Entrar no ZappTor</span>
             </button>
         </form>
+        
         <div class="login-footer">
-            Administrador? <span class="link-admin" onclick="openAdmin()">Acessar painel admin</span>
-            <span style="margin: 0 8px; color: #cbd5e1">|</span>
-            Dono? <span class="link-admin" onclick="openRoot()">Acesso Root</span>
+            Desenvolvido por <span class="link-admin" onclick="alert('ZappTor v2.0.1 - Painel Premium')">ZappTor Group</span>
         </div>
     </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════
      VIEW: CHAT
-═══════════════════════════════════════════════ -->
+     ═══════════════════════════════════════════════ -->
 <div id="view-chat" class="view">
 
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-user">
-                <div class="avatar md avatar-bg" id="sidebar-avatar"></div>
-                <div>
-                    <div class="user-name" id="sidebar-username"></div>
-                    <div class="user-role" id="sidebar-role"></div>
+                <div class="avatar md avatar-bg" id="sidebar-avatar">ZT</div>
+                <div style="min-width: 0;">
+                    <div class="user-name" id="sidebar-username">Nome do Usuário</div>
+                    <div class="user-role" id="sidebar-role">
+                        <span class="role-badge user" id="sidebar-role-badge">Usuário</span>
+                        <span style="font-size:11px; color:#8696a0;" id="sidebar-company-name">Empresa</span>
+                    </div>
                 </div>
             </div>
             <div class="flex gap-2">
-                <button class="icon-btn sound-toggle" id="sound-toggle-btn" title="Ativar/Desativar som">🔔</button>
-                <button class="icon-btn" onclick="openAdmin()" title="Painel Admin">
+                <button class="icon-btn sound-toggle" id="sound-toggle-btn" title="Ativar/Desativar som" onclick="toggleSound()">🔔</button>
+                <button class="icon-btn" onclick="openAdmin()" id="admin-panel-btn" title="Painel Admin">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/></svg>
                 </button>
                 <button class="icon-btn" onclick="logout()" title="Sair">
@@ -423,278 +439,243 @@
 
         <div class="connection-bar disconnected" id="conn-bar">
             <span class="dot red"></span>
-            <span id="conn-text">Aguardando WhatsApp...</span>
+            <span id="conn-text">Conexão WhatsApp Desconectada</span>
         </div>
 
         <div class="search-bar">
             <div class="search-input-wrap">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                <input type="text" id="search-input" placeholder="Pesquisar conversas..." oninput="filterChats()" />
+                <input type="text" id="search-input" placeholder="Pesquisar..." oninput="filterChats()" />
             </div>
         </div>
 
-        <div class="filter-tabs">
-            <button class="filter-tab active" id="tab-all" onclick="setFilter('all')">Todos</button>
-            <button class="filter-tab" id="tab-unread" onclick="setFilter('unread')">Não lidas</button>
-            <button class="filter-tab" id="tab-groups" onclick="setFilter('groups')">Grupos</button>
+        <div class="sidebar-tabs">
+            <button class="sidebar-tab active" id="tab-chats-wpp" onclick="switchSidebarTab('wpp')">Conversas WhatsApp</button>
+            <button class="sidebar-tab" id="tab-chats-internal" onclick="switchSidebarTab('internal')">Chat da Equipe</button>
         </div>
 
         <div class="chat-list" id="chat-list">
-            <div class="loading-list">
-                <div class="spinner"></div>
-                <span>Sincronizando conversas...</span>
-            </div>
+            <!-- Preenchido via Javascript -->
         </div>
     </aside>
 
     <!-- CHAT AREA -->
     <section class="chat-area" id="chat-area">
-        <div class="welcome-screen" id="welcome-screen">
-            <div class="welcome-logo">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/1024px-WhatsApp.svg.png" alt="WhatsApp" />
+        <!-- Banner de aviso caso Whatsapp esteja desconectado para usuário comum -->
+        <div class="block-screen hidden" id="wpp-disconnected-block">
+            <div class="block-screen-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             </div>
-            <h2>ZapTor</h2>
-            <p>Selecione uma conversa na lista ao lado para começar a enviar mensagens.</p>
-            <div class="welcome-sig" id="welcome-sig"></div>
+            <h3>WhatsApp Desconectado</h3>
+            <p>O WhatsApp da sua empresa não está conectado ao ZappTor. Entre em contato com seu administrador para escanear o QR Code de conexão.</p>
+            <button class="btn-primary" style="max-width:200px" onclick="logout()">Sair da Conta</button>
         </div>
 
-        <!-- Active chat (hidden by default) -->
-        <div class="hidden" id="active-chat-container" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+        <!-- Tela padrão sem conversa aberta -->
+        <div class="chat-placeholder" id="chat-placeholder">
+            <img class="chat-placeholder-logo" src="imgs/Logo.png" alt="ZappTor Logo" onerror="this.src='https://raw.githubusercontent.com/wppconnect-team/wa-version/main/wa-version.png'" />
+            <h2>ZappTor Premium</h2>
+            <p>Selecione uma conversa ou membro da equipe na barra lateral para começar a enviar mensagens.</p>
+        </div>
+
+        <!-- Interface de Conversa Ativa -->
+        <div class="hidden" id="chat-active" style="display:flex; flex-direction:column; height:100%;">
             <div class="chat-header">
-                <button class="icon-btn back-btn" onclick="closeChat()">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-                </button>
                 <div class="chat-header-info">
-                    <div class="avatar md avatar-bg" id="chat-header-avatar"></div>
+                    <div class="avatar sm avatar-bg" id="chat-header-avatar">C</div>
                     <div>
-                        <div class="chat-header-name" id="chat-header-name"></div>
-                        <div class="text-xs text-muted" id="chat-header-sub"></div>
+                        <div class="chat-header-title" id="chat-header-title">Nome da Conversa</div>
+                        <div class="chat-header-subtitle" id="chat-header-subtitle">Carregando...</div>
                     </div>
                 </div>
-                <div class="flex gap-2">
-                    <button class="icon-btn" onclick="markChatUnread()" title="Marcar como não lida">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                    </button>
+                <div>
+                    <button class="icon-btn" onclick="markChatUnread()" title="Marcar como não lida">📌</button>
                 </div>
             </div>
-            <div class="messages-wrap" id="messages-wrap"></div>
-            <div class="input-area">
-                <div class="file-preview hidden" id="file-preview">
-                    <div id="file-preview-thumb"></div>
-                    <span class="file-preview-name" id="file-preview-name"></span>
-                    <button class="file-preview-remove" onclick="clearFile()">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    </button>
-                </div>
-                <div class="input-row">
-                    <input type="file" id="file-input" class="hidden" onchange="handleFileSelect(event)" />
-                    <button class="attach-btn" id="attach-btn" onclick="document.getElementById('file-input').click()" title="Anexar arquivo">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                    </button>
-                    <div class="msg-input-wrap">
-                        <input type="text" class="msg-input" id="msg-input" placeholder="Mensagem... (Cole imagens com Ctrl+V)" autocomplete="off" onkeydown="handleInputKey(event)" onpaste="handlePaste(event)" />
+
+            <div class="messages-container" id="messages-container">
+                <!-- Preenchido via Javascript -->
+            </div>
+
+            <!-- Footer / Input de Mensagem -->
+            <div class="chat-footer">
+                <button class="icon-btn" onclick="document.getElementById('file-input').click()" title="Anexar arquivo">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+                </button>
+                <input type="file" id="file-input" class="hidden" onchange="handleFileSelected(event)" />
+
+                <div style="display:flex; flex-direction:column; flex:1;">
+                    <div class="chat-input-wrap">
+                        <input type="text" id="chat-message-input" placeholder="Digite uma mensagem..." onkeydown="handleMessageKeydown(event)" />
                     </div>
-                    <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled title="Enviar">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="transform:translateX(1px)"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                    </button>
+                    <!-- Preview do Arquivo Selecionado -->
+                    <div id="file-preview" class="file-preview hidden">
+                        <div id="file-preview-thumb"></div>
+                        <div id="file-preview-name" class="user-item-name" style="font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">arquivo.ext</div>
+                        <button class="btn-delete" onclick="clearFile()" style="padding:4px">❌</button>
+                    </div>
                 </div>
+
+                <button class="icon-btn" onclick="sendMessage()" style="background:var(--primary); color:white; width:44px; height:44px;" title="Enviar">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
             </div>
         </div>
     </section>
 </div>
 
 <!-- ═══════════════════════════════════════════════
-     VIEW: ADMIN PANEL
-═══════════════════════════════════════════════ -->
-<div id="view-admin" class="view" onclick="handleAdminBackdrop(event)">
+     VIEW: ADMIN DASHBOARD OVERLAY
+     ═══════════════════════════════════════════════ -->
+<div id="view-admin" class="admin-overlay" onclick="handleAdminBackdrop(event)">
     <div class="admin-modal" id="admin-modal">
         <div class="admin-header">
             <h2>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                Painel Administrativo
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Painel do Administrador: <span id="admin-panel-company-title" style="color:var(--primary)">Empresa</span>
             </h2>
             <button class="icon-btn" onclick="closeAdmin()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
         </div>
-        <div class="admin-body" id="admin-body">
-            <!-- Preenchido por JS -->
+        <div class="admin-container">
+            <nav class="admin-nav">
+                <button class="admin-nav-item active" id="nav-wpp" onclick="switchAdminTab('wpp')">Conexão WhatsApp</button>
+                <button class="admin-nav-item" id="nav-users" onclick="switchAdminTab('users')">Colaboradores</button>
+                <button class="admin-nav-item" id="nav-teams" onclick="switchAdminTab('teams')">Equipes</button>
+                <button class="admin-nav-item" id="nav-bills" onclick="switchAdminTab('bills')">Mensalidades</button>
+                <button class="admin-nav-item" id="nav-config" onclick="switchAdminTab('config')">Configurações</button>
+            </nav>
+            <div class="admin-body" id="admin-body-content">
+                <!-- Preenchido dinamicamente via JS -->
+            </div>
         </div>
     </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════
-     VIEW: ROOT PANEL
-═══════════════════════════════════════════════ -->
-<div id="view-root" class="view" onclick="handleRootBackdrop(event)">
+     VIEW: ROOT DASHBOARD OVERLAY
+     ═══════════════════════════════════════════════ -->
+<div id="view-root" class="admin-overlay" onclick="handleRootBackdrop(event)">
     <div class="admin-modal" id="root-modal">
         <div class="admin-header">
             <h2>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                Painel Root (Multi-Empresa)
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Painel Root (Gerenciamento Global ZappTor)
             </h2>
             <button class="icon-btn" onclick="closeRoot()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
         </div>
-        <div class="admin-body" id="root-body">
-            <!-- Preenchido por JS -->
+        <div class="admin-container">
+            <nav class="admin-nav">
+                <button class="admin-nav-item active" id="nav-root-companies" onclick="switchRootTab('companies')">Empresas (Tenants)</button>
+                <button class="admin-nav-item" id="nav-root-installments" onclick="switchRootTab('installments')">Mensalidades</button>
+            </nav>
+            <div class="admin-body" id="root-body-content">
+                <!-- Preenchido dinamicamente via JS -->
+            </div>
         </div>
     </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════
-     SCRIPTS
-═══════════════════════════════════════════════ -->
+<!-- Banner Flutuante de Notificação -->
+<div class="notification-banner" id="notification-banner">
+    <div class="notification-banner-icon">🔔</div>
+    <div>
+        <div style="font-weight:700; font-size:13px;" id="notif-title">Título</div>
+        <div style="font-size:12px; color:var(--text-secondary);" id="notif-body">Mensagem</div>
+    </div>
+</div>
+
+<!-- SCRIPTS -->
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script>
-// ╔══════════════════════════════════════════════════════════╗
-// ║  ZapTor Frontend v2.0                                    ║
-// ║  Edite BACKEND_URL abaixo com a URL do seu Railway       ║
-// ╚══════════════════════════════════════════════════════════╝
-
-let savedUrl = localStorage.getItem('zaptor_backend_url');
-if (savedUrl && (savedUrl.includes('localhost') || savedUrl === 'null' || savedUrl === 'undefined' || savedUrl.endsWith('.ap') || !savedUrl.startsWith('http'))) {
-    localStorage.removeItem('zaptor_backend_url');
-    savedUrl = null;
-}
-const BACKEND_URL = savedUrl
-    || window.ZAPTOR_BACKEND_URL
-    || 'https://zaptor-production.up.railway.app';
-
-// ── Estado da Aplicação ──────────────────────────────────────
+// ── Estado Global do Frontend ─────────────────────────────────
 const state = {
-    user: null,
+    user: null, // { id, name, role, company_id, team_id }
+    company: null, // { id, name, slug, phone_number, plan, signature_type, due_date }
     chats: [],
-    activeChat: null,
+    activeChat: null, // { id, name, isGroup, isInternal }
     messages: [],
     socket: null,
     isReady: false,
-    filter: 'all',
-    selectedFile: null,
     soundEnabled: true,
     adminKey: null,
-    adminAuthed: false,
     rootKey: null,
-    rootAuthed: false,
     unreadOriginalTitle: document.title,
     unreadCount: 0,
+    selectedFile: null,
+    activeSidebarTab: 'wpp', // 'wpp' ou 'internal'
+    activeAdminTab: 'wpp',
+    activeRootTab: 'companies',
+    searchQuery: '',
+    internalUsers: [], // Outros colaboradores da empresa
+    qrCodeImg: null,
+    qrError: null
 };
 
-// ── Sons de Notificação ──────────────────────────────────────
-function playNotifSound() {
-    if (!state.soundEnabled) return;
+// URL do Backend
+const savedUrl = localStorage.getItem('zaptor_backend_url');
+const BACKEND_URL = (savedUrl && !savedUrl.includes('localhost') && savedUrl.startsWith('http'))
+    ? savedUrl
+    : window.ZAPTOR_BACKEND_URL || 'http://localhost:3001';
+
+// Configuração de Limites do Plano
+const PLAN_LIMITS = {
+    'START': { maxUsers: 10, maxTeams: 0, maxPhones: 1, label: 'START (R$ 79,00)' },
+    'TEAM': { maxUsers: 20, maxTeams: 2, maxPhones: 1, label: 'TEAM (R$ 149,00)' },
+    'BUSINESS': { maxUsers: 40, maxTeams: 4, maxPhones: 2, label: 'BUSINESS (R$ 249,00)' },
+    'ENTERPRISE': { maxUsers: 999999, maxTeams: 999999, maxPhones: 10, label: 'ENTERPRISE (R$ 399,00)' }
+};
+
+// ── Utilitário: Fetch Scoped por Empresa e Chaves ──────────────
+async function apiFetch(path, options = {}) {
+    if (!options.headers) options.headers = {};
+    if (state.user) {
+        if (state.user.company_id) {
+            options.headers['x-company-id'] = state.user.company_id;
+        }
+        options.headers['x-user-id'] = state.user.id;
+        options.headers['x-user-name'] = state.user.name;
+    }
+    if (state.adminKey) {
+        options.headers['x-admin-key'] = state.adminKey;
+    }
+    if (state.rootKey) {
+        options.headers['x-root-key'] = state.rootKey;
+    }
+    return fetch(`${BACKEND_URL}${path}`, options);
+}
+
+// ── Inicialização do Sistema ──────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+    // Carregar usuário logado anteriormente se houver
+    const savedUser = localStorage.getItem('zaptor_user');
+    const savedCompany = localStorage.getItem('zaptor_company');
+    const savedAdminKey = localStorage.getItem('zaptor_admin_key');
+    const savedRootKey = localStorage.getItem('zaptor_root_key');
+
+    if (savedUser) {
+        state.user = JSON.parse(savedUser);
+        state.company = savedCompany ? JSON.parse(savedCompany) : null;
+        state.adminKey = savedAdminKey;
+        state.rootKey = savedRootKey;
+    }
+
+    // Tenta conectar ao backend para verificar status
     try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
-        o.connect(g); g.connect(ctx.destination);
-        o.type = 'sine'; o.frequency.value = 880;
-        g.gain.setValueAtTime(0, ctx.currentTime);
-        g.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.05);
-        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-        o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.4);
-    } catch (e) {}
-}
-
-// ── Utilitários ──────────────────────────────────────────────
-function showView(name) {
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    const v = document.getElementById(`view-${name}`);
-    if (v) v.classList.add('active');
-}
-
-function getInitials(name) {
-    if (!name) return '?';
-    return name.substring(0, 2).toUpperCase();
-}
-
-function getAvatarColor(name) {
-    const colors = ['#06cf9c','#25d366','#128c7e','#6c63ff','#e67e22','#e74c3c','#3498db','#9b59b6'];
-    let hash = 0;
-    for (let c of (name||'')) hash = c.charCodeAt(0) + ((hash << 5) - hash);
-    return colors[Math.abs(hash) % colors.length];
-}
-
-function formatTime(ts) {
-    if (!ts) return '';
-    const d = new Date(ts * 1000);
-    const now = new Date();
-    const isToday = d.toDateString() === now.toDateString();
-    if (isToday) return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-}
-
-function formatMsgTime(ts) {
-    if (!ts) return '';
-    return new Date(ts * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-}
-
-function formatText(text) {
-    if (!text) return '';
-    return text
-        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-        .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
-        .replace(/_([\s\S]+?)_/g, '<em>$1</em>');
-}
-
-function showNotif(title, text, isError = false) {
-    const c = document.getElementById('notif-container');
-    const n = document.createElement('div');
-    n.className = `notif${isError ? ' error' : ''}`;
-    n.innerHTML = `
-        <div class="notif-icon${isError ? ' error' : ''}">
-            ${isError
-                ? '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#e74c3c" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
-                : '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#25d366" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'}
-        </div>
-        <div class="notif-body"><div class="notif-title">${title}</div><div class="notif-text">${text}</div></div>
-        <button class="notif-close" onclick="this.parentElement.remove()">×</button>`;
-    c.appendChild(n);
-    setTimeout(() => n.remove(), 5000);
-}
-
-// ── Inicialização ─────────────────────────────────────────────
-window.addEventListener('load', async () => {
-    showView('loading');
-    setLoadingText('Conectando ao servidor...');
-
-    // Restaura sessão do usuário
-    const saved = localStorage.getItem('zaptor_user');
-    if (saved) { try { state.user = JSON.parse(saved); } catch(e) {} }
-
-    // Sound toggle
-    const soundBtn = document.getElementById('sound-toggle-btn');
-    state.soundEnabled = localStorage.getItem('zaptor_sound') !== 'off';
-    soundBtn.textContent = state.soundEnabled ? '🔔' : '🔕';
-    soundBtn.onclick = () => {
-        state.soundEnabled = !state.soundEnabled;
-        soundBtn.textContent = state.soundEnabled ? '🔔' : '🔕';
-        localStorage.setItem('zaptor_sound', state.soundEnabled ? 'on' : 'off');
-    };
-
-    // Tenta conectar ao backend
-    try {
-        const res = await fetch(`${BACKEND_URL}/api/status`, { signal: AbortSignal.timeout(8000) });
+        const res = await apiFetch('/api/status');
         const data = await res.json();
-
-        initSocket();
-
-        if (!data.ready) {
-            // WhatsApp não conectado → mostrar QR
-            showView('qr');
-            if (data.hasQR) await fetchQR();
+        
+        if (state.user) {
+            enterDashboardOrChat();
         } else {
-            // WhatsApp pronto
-            state.isReady = true;
-            if (state.user) {
-                enterChat();
-            } else {
-                showView('login');
-            }
+            showView('login');
         }
     } catch (err) {
-        setLoadingText('❌ Servidor não encontrado. Verifique a URL do backend.');
+        console.error('[Error Connecting Backend]', err);
+        setLoadingText('❌ Conexão falhou. Configurando URL do Backend.');
         showBackendInput();
     }
 });
@@ -706,554 +687,589 @@ function setLoadingText(t) {
 function showBackendInput() {
     const el = document.getElementById('loading-text');
     el.innerHTML = `
-        <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;max-width:380px">
-            <div style="color:#c0392b;font-weight:600">❌ Servidor não encontrado</div>
-            <p style="font-size:13px;color:#54656f">Configure a URL do backend (Railway):</p>
+        <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;max-width:380px;margin-top:10px;">
+            <div style="color:#ef4444;font-weight:700">❌ Servidor não encontrado</div>
+            <p style="font-size:13px;color:var(--text-secondary)">Insira a URL correta do backend (Railway):</p>
             <input id="backend-url-input" type="url" value="${BACKEND_URL}"
-                style="width:100%;padding:10px 14px;border:2px solid #e9edef;border-radius:10px;font-size:14px;outline:none"
-                placeholder="https://seu-app.railway.app" />
-            <button onclick="saveBackendUrl()" style="padding:10px 24px;background:#25d366;color:white;border-radius:10px;font-weight:700;border:none;cursor:pointer">Tentar Conectar</button>
+                style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:8px;font-size:14px;outline:none"
+                placeholder="http://localhost:3001" />
+            <button onclick="saveBackendUrl()" style="padding:10px 24px;background:var(--primary);color:white;border-radius:8px;font-weight:700;border:none;cursor:pointer">Salvar e Conectar</button>
         </div>`;
 }
 
 function saveBackendUrl() {
     let url = document.getElementById('backend-url-input').value.trim().replace(/\/$/, '');
     if (url) {
-        if (!/^https?:\/\//i.test(url)) {
-            url = 'https://' + url;
-        }
-        if (url.endsWith('.ap')) {
-            url = url + 'p';
-        }
+        if (!/^https?:\/\//i.test(url)) url = 'http://' + url;
     }
     localStorage.setItem('zaptor_backend_url', url);
     location.reload();
 }
 
-async function fetchQR() {
+function showView(viewId) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    const target = document.getElementById(`view-${viewId}`);
+    if (target) target.classList.add('active');
+}
+
+// ── Login Flow ────────────────────────────────────────────────
+let loginType = 'company';
+
+function toggleLoginType(type) {
+    loginType = type;
+    document.querySelectorAll('.login-tab').forEach(b => b.classList.remove('active'));
+    document.getElementById(`tab-login-${type}`).classList.add('active');
+    
+    const companyFields = document.getElementById('company-login-fields');
+    const rootFields = document.getElementById('root-login-fields');
+    const nameInput = document.getElementById('login-name');
+    const slugInput = document.getElementById('login-slug');
+
+    if (type === 'company') {
+        companyFields.classList.remove('hidden');
+        rootFields.classList.add('hidden');
+        nameInput.required = true;
+        slugInput.required = true;
+    } else {
+        companyFields.classList.add('hidden');
+        rootFields.classList.remove('hidden');
+        nameInput.required = false;
+        slugInput.required = false;
+    }
+    document.getElementById('login-error').classList.remove('show');
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+    document.getElementById('login-error').classList.remove('show');
+
+    const name = loginType === 'root' ? 'root' : document.getElementById('login-name').value.trim();
+    const email = loginType === 'root' ? document.getElementById('login-root-email').value.trim() : '';
+    const slug = loginType === 'root' ? '' : document.getElementById('login-slug').value.trim();
+    const password = document.getElementById('login-password').value;
+
+    const btn = document.getElementById('login-btn');
+    btn.disabled = true;
+    btn.querySelector('span').textContent = 'Autenticando...';
+
     try {
-        const r = await fetch(`${BACKEND_URL}/api/qr`);
-        const d = await r.json();
-        if (d.qr) showQRImage(d.qr);
-    } catch (e) {}
+        const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, password, email, companySlug: slug, loginType })
+        });
+        const data = await res.json();
+
+        if (res.status === 200 && data.valid) {
+            state.user = data.user;
+            state.company = data.company;
+            
+            // Salvar credenciais no storage local
+            localStorage.setItem('zaptor_user', JSON.stringify(state.user));
+            if (data.company) {
+                localStorage.setItem('zaptor_company', JSON.stringify(state.company));
+            }
+            if (state.user.role === 'admin') {
+                state.adminKey = password;
+                localStorage.setItem('zaptor_admin_key', password);
+            }
+            if (state.user.role === 'root') {
+                state.rootKey = password;
+                localStorage.setItem('zaptor_root_key', password);
+            }
+
+            enterDashboardOrChat();
+        } else {
+            showLoginError(data.error || 'Falha na autenticação.');
+        }
+    } catch (err) {
+        showLoginError('Erro de conexão com o servidor de autenticação.');
+    } finally {
+        btn.disabled = false;
+        btn.querySelector('span').textContent = 'Entrar no ZappTor';
+    }
 }
 
-function showQRImage(dataUrl) {
-    document.getElementById('qr-waiting').classList.add('hidden');
-    const img = document.getElementById('qr-image');
-    img.src = dataUrl;
-    img.classList.remove('hidden');
+function showLoginError(msg) {
+    const err = document.getElementById('login-error');
+    err.textContent = msg;
+    err.classList.add('show');
 }
 
-// ── Socket.io ────────────────────────────────────────────────
+function logout() {
+    state.user = null;
+    state.company = null;
+    state.adminKey = null;
+    state.rootKey = null;
+    localStorage.clear();
+    if (state.socket) {
+        state.socket.disconnect();
+        state.socket = null;
+    }
+    showView('login');
+}
+
+function enterDashboardOrChat() {
+    if (state.user.role === 'root') {
+        showView('chat'); // Para layout padrão
+        openRoot();
+    } else {
+        showView('chat');
+        
+        // Atualiza cabeçalhos da interface
+        document.getElementById('sidebar-username').textContent = state.user.name;
+        document.getElementById('sidebar-company-name').textContent = state.company.name;
+        
+        const badge = document.getElementById('sidebar-role-badge');
+        badge.textContent = state.user.role === 'admin' ? 'Administrador' : 'Colaborador';
+        badge.className = `role-badge ${state.user.role}`;
+
+        // Ocultar botão admin na sidebar caso não seja admin
+        const adminBtn = document.getElementById('admin-panel-btn');
+        if (state.user.role !== 'admin') {
+            adminBtn.classList.add('hidden');
+        } else {
+            adminBtn.classList.remove('hidden');
+        }
+
+        // Conectar ao Socket e inicializar chats
+        initSocket();
+        
+        // Pede notificações
+        if (Notification.permission === 'default') Notification.requestPermission();
+    }
+}
+
+// ── Socket.io Connection ──────────────────────────────────────
 function initSocket() {
+    if (state.socket) return;
+
     state.socket = io(BACKEND_URL, { transports: ['websocket', 'polling'] });
 
-    state.socket.on('connect', () => console.log('[Socket] Conectado'));
-    state.socket.on('disconnect', () => console.log('[Socket] Desconectado'));
+    state.socket.on('connect', () => {
+        console.log('[Socket] Conectado');
+        // Envia registro da empresa
+        state.socket.emit('join_company', {
+            companyId: state.user.company_id,
+            loginName: state.user.name,
+            role: state.user.role
+        });
+    });
 
     state.socket.on('whatsapp_status', (data) => {
         state.isReady = data.ready;
+        state.qrError = data.error || null;
         updateConnectionBar();
-        if (data.ready) {
-            // WhatsApp ficou pronto
-            if (document.getElementById('view-qr').classList.contains('active')) {
-                updateQRStatus('connected');
-                setTimeout(() => {
-                    if (state.user) enterChat();
-                    else showView('login');
-                }, 1500);
-            }
-            if (state.user) fetchChats();
+        
+        // Tratar bloqueio de usuário regular se WhatsApp estiver desconectado
+        const block = document.getElementById('wpp-disconnected-block');
+        if (!data.ready && state.user.role === 'user') {
+            block.classList.remove('hidden');
         } else {
-            // WhatsApp desconectou
-            if (document.getElementById('view-chat').classList.contains('active')) {
-                updateConnectionBar();
-            }
+            block.classList.add('hidden');
+        }
+
+        if (data.ready) {
+            fetchChats();
         }
     });
 
     state.socket.on('whatsapp_qr', (data) => {
-        if (!document.getElementById('view-qr').classList.contains('active')) {
-            showView('qr');
-        }
-        showQRImage(data.qr);
-        updateQRStatus('waiting');
+        state.qrCodeImg = data.qr;
+        updateAdminQRContent();
     });
 
     state.socket.on('whatsapp_authenticated', () => {
-        updateQRStatus('authenticated');
+        state.qrCodeImg = null;
+        updateAdminQRContent('loading');
     });
 
     state.socket.on('whatsapp_loading', (data) => {
-        const badge = document.getElementById('qr-status-badge');
-        if (badge) badge.innerHTML = `<span class="dot yellow"></span><span>Carregando: ${data.percent}%</span>`;
+        updateAdminQRContent(`loading: ${data.percent}%`);
     });
 
     state.socket.on('whatsapp_message', (msg) => {
-        // Atualiza mensagens se a conversa está aberta
-        if (state.activeChat && (
-            msg.chatId === state.activeChat.id ||
-            msg.from === state.activeChat.id ||
-            msg.to === state.activeChat.id
-        )) {
-            appendMessage(msg);
-        }
-
-        // Notificação de nova mensagem recebida
-        if (!msg.fromMe) {
-            const chat = state.chats.find(c => c.id === msg.chatId || c.id === msg.from);
-            const chatName = chat?.name || 'Nova mensagem';
-            const preview = msg.body ? msg.body.substring(0, 60) : '📎 Arquivo';
-
-            // Incrementa badge no título
-            state.unreadCount++;
-            document.title = `(${state.unreadCount}) ZapTor`;
-
-            // Notificação do sistema
-            if (Notification.permission === 'granted') {
-                new Notification(`ZapTor: ${chatName}`, { body: preview, icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/64px-WhatsApp.svg.png' });
-            }
-
-            // Notif in-app se chat não está ativo
-            if (!state.activeChat || state.activeChat.id !== msg.chatId) {
-                playNotifSound();
-                showNotif(chatName, preview);
-            }
-
-            // Atualiza unread na lista
-            setChats(state.chats.map(c =>
-                (c.id === msg.chatId || c.id === msg.from)
-                    ? { ...c, unreadCount: (c.unreadCount || 0) + 1 }
-                    : c
-            ));
-        }
-
-        fetchChats(); // Atualiza ordem/preview
+        handleIncomingMessage(msg);
     });
 
     state.socket.on('message_error', (data) => {
-        showNotif('Erro ao enviar', data.error, true);
+        showNotif('Erro no WhatsApp', data.error, true);
     });
 
-    state.socket.on('chat_read', () => fetchChats());
-    state.socket.on('chat_unread', () => fetchChats());
-}
-
-function updateQRStatus(status) {
-    const badge = document.getElementById('qr-status-badge');
-    if (!badge) return;
-    if (status === 'connected') {
-        badge.className = 'status-badge connected';
-        badge.innerHTML = '<span class="dot green"></span><span>WhatsApp Conectado! ✓</span>';
-    } else if (status === 'authenticated') {
-        badge.className = 'status-badge loading';
-        badge.innerHTML = '<span class="dot yellow"></span><span>Autenticado! Carregando...</span>';
-    } else {
-        badge.className = 'status-badge loading';
-        badge.innerHTML = '<span class="dot yellow"></span><span>Aguardando escaneio</span>';
-    }
+    state.socket.on('chat_read', () => { if (state.activeSidebarTab === 'wpp') fetchChats(); });
+    state.socket.on('chat_unread', () => { if (state.activeSidebarTab === 'wpp') fetchChats(); });
 }
 
 function updateConnectionBar() {
     const bar = document.getElementById('conn-bar');
     const text = document.getElementById('conn-text');
     if (!bar) return;
+
     if (state.isReady) {
         bar.className = 'connection-bar connected';
         bar.innerHTML = '<span class="dot green"></span><span id="conn-text">WhatsApp Conectado ✓</span>';
+    } else if (state.qrError) {
+        bar.className = 'connection-bar disconnected';
+        bar.innerHTML = `<span class="dot red"></span><span id="conn-text">${state.qrError}</span>`;
     } else {
         bar.className = 'connection-bar disconnected';
         bar.innerHTML = '<span class="dot red"></span><span id="conn-text">WhatsApp Desconectado</span>';
     }
 }
 
-// ── Login ────────────────────────────────────────────────────
-async function handleLogin(e) {
-    e.preventDefault();
-    const name = document.getElementById('login-name').value.trim();
-    if (!name) return;
+// ── Sons e Notificações ───────────────────────────────────────
+function toggleSound() {
+    state.soundEnabled = !state.soundEnabled;
+    document.getElementById('sound-toggle-btn').textContent = state.soundEnabled ? '🔔' : '🔕';
+}
 
-    const btn = document.getElementById('login-btn');
-    const errEl = document.getElementById('login-error');
-    btn.disabled = true;
-    btn.querySelector('span').textContent = 'Verificando...';
-    errEl.classList.remove('show');
-
+function playNotifSound() {
+    if (!state.soundEnabled) return;
     try {
-        const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name }),
-        });
-        const data = await res.json();
-
-        if (data.valid) {
-            state.user = data.user;
-            localStorage.setItem('zaptor_user', JSON.stringify(state.user));
-            // Solicita permissão para notificações
-            if (Notification.permission === 'default') Notification.requestPermission();
-            enterChat();
-        } else {
-            errEl.textContent = data.error || 'Nome não reconhecido. Fale com o administrador.';
-            errEl.classList.add('show');
-        }
-    } catch (err) {
-        errEl.textContent = 'Erro de conexão. Tente novamente.';
-        errEl.classList.add('show');
-    } finally {
-        btn.disabled = false;
-        btn.querySelector('span').textContent = 'Entrar no ZapTor';
-    }
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.type = 'sine'; o.frequency.value = 880;
+        g.gain.setValueAtTime(0, ctx.currentTime);
+        g.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.05);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+        o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.4);
+    } catch (e) {}
 }
 
-function logout() {
-    state.user = null;
-    state.activeChat = null;
-    state.messages = [];
-    state.chats = [];
-    localStorage.removeItem('zaptor_user');
-    showView('login');
+function showNotif(title, body, isError = false) {
+    const banner = document.getElementById('notification-banner');
+    const t = document.getElementById('notif-title');
+    const b = document.getElementById('notif-body');
+    
+    t.textContent = title;
+    b.textContent = body;
+    
+    if (isError) banner.classList.add('error');
+    else banner.classList.remove('error');
+    
+    banner.classList.add('active');
+    setTimeout(() => banner.classList.remove('active'), 4000);
 }
 
-// ── Chat ─────────────────────────────────────────────────────
-function enterChat() {
-    showView('chat');
-    updateConnectionBar();
-
-    // Preenche header da sidebar
-    const avatar = document.getElementById('sidebar-avatar');
-    avatar.textContent = getInitials(state.user.name);
-    avatar.style.background = getAvatarColor(state.user.name);
-    document.getElementById('sidebar-username').textContent = state.user.name;
-    document.getElementById('sidebar-role').textContent =
-        state.user.role === 'admin' ? '🛡 Administrador' : 'Usuário';
-
-    document.getElementById('welcome-sig').innerHTML =
-        `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#25d366" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-         Suas mensagens usarão a assinatura <strong>&nbsp;*${state.user.name}:*</strong>`;
-
-    if (state.isReady) fetchChats();
-}
-
+// ── Chats e Mensagens WhatsApp / Interno ───────────────────────
 async function fetchChats() {
-    const list = document.getElementById('chat-list');
-    try {
-        const res = await fetch(`${BACKEND_URL}/api/chats`);
-        const data = await res.json();
-        if (data && data.error) {
-            throw new Error(data.error);
-        }
-        if (Array.isArray(data)) {
-            setChats(data);
-        } else {
-            throw new Error('Resposta inválida do servidor.');
-        }
-    } catch (e) {
-        console.error('[Chats] Erro ao buscar conversas:', e.message);
-        list.innerHTML = `<div class="empty-list" style="color:#c0392b">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="#e74c3c" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            <span>Erro ao carregar: ${e.message}</span>
-        </div>`;
-    }
-}
-
-function setChats(data) {
-    state.chats = data.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-    renderChatList();
-}
-
-function setFilter(f) {
-    state.filter = f;
-    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
-    document.getElementById(`tab-${f === 'all' ? 'all' : f === 'unread' ? 'unread' : 'groups'}`).classList.add('active');
-    renderChatList();
-}
-
-function filterChats() { renderChatList(); }
-
-function renderChatList() {
-    const q = document.getElementById('search-input').value.toLowerCase();
-    let filtered = state.chats.filter(c => {
-        const nameMatch = (c.name || '').toLowerCase().includes(q);
-        if (!nameMatch) return false;
-        if (state.filter === 'unread') return c.unreadCount && c.unreadCount !== 0;
-        if (state.filter === 'groups') return c.isGroup;
-        return true;
-    });
-
-    const list = document.getElementById('chat-list');
-    if (filtered.length === 0) {
-        list.innerHTML = `<div class="empty-list">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="#ccc" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            <span>${q ? 'Nenhuma conversa encontrada.' : 'Nenhuma conversa disponível.'}</span>
-        </div>`;
+    if (state.activeSidebarTab === 'internal') {
+        fetchInternalUsers();
         return;
     }
 
-    list.innerHTML = filtered.map(chat => {
-        const initials = getInitials(chat.name);
-        const color = getAvatarColor(chat.name);
-        const time = formatTime(chat.timestamp);
-        const isActive = state.activeChat?.id === chat.id;
-        const hasUnread = chat.unreadCount && chat.unreadCount !== 0;
-        const groupIcon = chat.isGroup
-            ? `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="${color}" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>` : '';
+    if (!state.isReady) {
+        document.getElementById('chat-list').innerHTML = `
+            <div style="color:var(--text-secondary);font-size:14px;text-align:center;padding:32px;">
+                WhatsApp não conectado.
+            </div>`;
+        return;
+    }
 
-        return `<div class="chat-item ${isActive ? 'active' : ''}" onclick="selectChat(${JSON.stringify(chat.id)})">
-            <div class="avatar md" style="background:${color}">${initials}</div>
-            <div class="chat-info">
-                <div class="chat-name">${chat.name || 'Desconhecido'} ${groupIcon}</div>
-                <div class="chat-meta">
-                    <span class="chat-preview">${hasUnread ? '📩 Não lida' : 'Clique para ver'}</span>
-                    <span class="chat-time">${time}</span>
+    try {
+        const res = await apiFetch('/api/chats');
+        state.chats = await res.json();
+        renderChatList();
+    } catch (e) {
+        console.error('[Error fetching chats]', e);
+    }
+}
+
+async function fetchInternalUsers() {
+    try {
+        const res = await apiFetch('/api/admin/users');
+        const users = await res.json();
+        
+        // Filtra para remover a si mesmo da lista de chat interno
+        state.internalUsers = users.filter(u => u.id !== state.user.id && u.active);
+        renderInternalUserList();
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function switchSidebarTab(tab) {
+    state.activeSidebarTab = tab;
+    document.getElementById('tab-chats-wpp').classList.toggle('active', tab === 'wpp');
+    document.getElementById('tab-chats-internal').classList.toggle('active', tab === 'internal');
+    
+    fetchChats();
+}
+
+function renderChatList() {
+    const el = document.getElementById('chat-list');
+    const filtered = state.chats.filter(c => c.name.toLowerCase().includes(state.searchQuery.toLowerCase()));
+
+    if (filtered.length === 0) {
+        el.innerHTML = `<div style="color:var(--text-secondary);font-size:14px;text-align:center;padding:32px">Nenhuma conversa encontrada.</div>`;
+        return;
+    }
+
+    el.innerHTML = filtered.map(c => `
+        <div class="chat-item ${state.activeChat && state.activeChat.id === c.id ? 'active' : ''}" onclick="selectChat('${c.id}', '${c.name.replace(/'/g, "\\'")}', false)">
+            <div class="avatar sm avatar-bg">${c.name.substring(0,2).toUpperCase()}</div>
+            <div class="chat-item-body">
+                <div class="chat-item-top">
+                    <div class="chat-item-name">${c.name}</div>
+                    <div class="chat-item-time">${c.timestamp ? new Date(c.timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</div>
+                </div>
+                <div class="chat-item-top">
+                    <div class="chat-item-preview">${c.isGroup ? '👥 Grupo' : 'Mensagem do WhatsApp'}</div>
+                    ${c.unreadCount > 0 ? `<span class="unread-badge">${c.unreadCount}</span>` : ''}
                 </div>
             </div>
-            ${hasUnread
-                ? `<div class="unread-badge">${chat.unreadCount > 0 ? chat.unreadCount : '!'}</div>`
-                : `<button class="mark-unread-btn" onclick="markUnread(event,'${chat.id}')" title="Marcar como não lida">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                   </button>`}
-        </div>`;
+        </div>`).join('');
+}
+
+function renderInternalUserList() {
+    const el = document.getElementById('chat-list');
+    const filtered = state.internalUsers.filter(u => u.name.toLowerCase().includes(state.searchQuery.toLowerCase()));
+
+    if (filtered.length === 0) {
+        el.innerHTML = `<div style="color:var(--text-secondary);font-size:14px;text-align:center;padding:32px">Nenhum colega encontrado.</div>`;
+        return;
+    }
+
+    el.innerHTML = filtered.map(u => {
+        const teamName = u.teams?.name || 'Geral';
+        return `
+            <div class="chat-item ${state.activeChat && state.activeChat.id === u.id ? 'active' : ''}" onclick="selectChat('${u.id}', '${u.name.replace(/'/g, "\\'")}', true, '${teamName}')">
+                <div class="avatar sm avatar-bg" style="background:linear-gradient(135deg, #3b82f6, #1d4ed8)">${u.name.substring(0,2).toUpperCase()}</div>
+                <div class="chat-item-body">
+                    <div class="chat-item-top">
+                        <div class="chat-item-name">${u.name}</div>
+                    </div>
+                    <div class="chat-item-top">
+                        <div class="chat-item-preview">Equipe: ${teamName}</div>
+                    </div>
+                </div>
+            </div>`;
     }).join('');
 }
 
-async function selectChat(chatId) {
-    const chat = state.chats.find(c => c.id === chatId);
-    if (!chat) return;
-    state.activeChat = chat;
-    state.messages = [];
+function filterChats() {
+    state.searchQuery = document.getElementById('search-input').value;
+    if (state.activeSidebarTab === 'wpp') renderChatList();
+    else renderInternalUserList();
+}
 
-    // Reset title badge for this chat
-    state.unreadCount = 0;
-    document.title = state.unreadOriginalTitle;
+async function selectChat(id, name, isInternal = false, teamName = 'Geral') {
+    state.activeChat = { id, name, isInternal, teamName };
+    
+    // UI Switches
+    document.getElementById('chat-placeholder').classList.add('hidden');
+    document.getElementById('chat-active').classList.remove('hidden');
+    
+    // Atualiza cabeçalho do chat
+    document.getElementById('chat-header-title').textContent = name;
+    document.getElementById('chat-header-subtitle').textContent = isInternal ? `Equipe: ${teamName} | Chat Interno` : 'WhatsApp';
+    document.getElementById('chat-header-avatar').textContent = name.substring(0,2).toUpperCase();
 
-    // Update UI
-    renderChatList();
-    showActiveChatUI(chat);
+    // Rerender list item highlight
+    if (isInternal) renderInternalUserList();
+    else renderChatList();
 
-    // Mark as read
-    fetch(`${BACKEND_URL}/api/chats/${encodeURIComponent(chatId)}/read`, { method: 'POST' }).catch(() => {});
-    setChats(state.chats.map(c => c.id === chatId ? { ...c, unreadCount: 0 } : c));
+    // Carregar mensagens
+    loadMessages();
+}
 
-    // Fetch messages
+async function loadMessages() {
+    const container = document.getElementById('messages-container');
+    container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%"><div class="spinner"></div></div>`;
+
     try {
-        document.getElementById('messages-wrap').innerHTML = `
-            <div style="display:flex;align-items:center;justify-content:center;gap:8px;color:#8696a0;font-size:14px;padding:20px">
-                <div class="spinner"></div> Carregando mensagens...
-            </div>`;
-        const res = await fetch(`${BACKEND_URL}/api/chats/${encodeURIComponent(chatId)}/messages`);
-        const data = await res.json();
-        if (Array.isArray(data)) {
-            state.messages = data;
-            renderMessages();
+        if (state.activeChat.isInternal) {
+            // No caso de chat interno, as mensagens são carregadas do banco de dados (tabela messages)
+            // filtrando por is_internal = true e sender/receiver correspondente
+            const res = await apiFetch(`/api/chats`); // Dummy load, na verdade puxamos via Endpoint customizado ou similar
+            // Para simplicidade e eficácia, vamos buscar as mensagens normais arquivadas no Supabase
+            // Como usamos a ANON KEY do supabase no frontend para RLS ou criamos rota de messages no backend:
+            // Vamos criar uma rota de mensagens de chat interno simples
+            const historyRes = await apiFetch(`/api/admin/users`); // endpoint mock ou ler do banco
+            
+            // Vamos criar a simulação de mensagens da equipe no frontend ou requisições ao Supabase.
+            // Para garantir robustez técnica, faremos chamada ao endpoint de histórico de mensagens internas:
+            const internalMsgRes = await apiFetch(`/api/chats/${encodeURIComponent(state.activeChat.id)}/messages?isInternal=true`);
+            const msgs = await internalMsgRes.json();
+            
+            state.messages = msgs;
+        } else {
+            const res = await apiFetch(`/api/chats/${encodeURIComponent(state.activeChat.id)}/messages`);
+            state.messages = await res.json();
         }
+        
+        renderMessages();
     } catch (e) {
-        document.getElementById('messages-wrap').innerHTML = '<div style="text-align:center;padding:20px;color:#e74c3c;font-size:14px">Erro ao carregar mensagens.</div>';
+        container.innerHTML = `<div style="color:#ef4444;font-size:14px;text-align:center;padding:32px">Erro ao carregar mensagens. Tente novamente.</div>`;
     }
-}
-
-function showActiveChatUI(chat) {
-    document.getElementById('welcome-screen').style.display = 'none';
-    const container = document.getElementById('active-chat-container');
-    container.style.display = 'flex';
-    container.removeAttribute('style');
-    container.style.display = 'flex';
-    container.style.flexDirection = 'column';
-    container.style.flex = '1';
-    container.style.overflow = 'hidden';
-
-    // Header
-    const avatar = document.getElementById('chat-header-avatar');
-    avatar.textContent = getInitials(chat.name);
-    avatar.style.background = getAvatarColor(chat.name);
-    document.getElementById('chat-header-name').textContent = chat.name || 'Desconhecido';
-    document.getElementById('chat-header-sub').textContent = chat.isGroup ? 'Grupo' : 'Contato';
-
-    // Input
-    const ready = state.isReady;
-    document.getElementById('msg-input').disabled = !ready;
-    document.getElementById('attach-btn').disabled = !ready;
-    document.getElementById('send-btn').disabled = !ready;
-
-    // Mobile
-    if (window.innerWidth <= 768) {
-        document.getElementById('chat-area').classList.add('mobile-open');
-        document.getElementById('sidebar').style.display = 'none';
-    }
-}
-
-function closeChat() {
-    state.activeChat = null;
-    document.getElementById('welcome-screen').style.display = '';
-    document.getElementById('active-chat-container').style.display = 'none';
-    document.getElementById('chat-area').classList.remove('mobile-open');
-    document.getElementById('sidebar').style.display = '';
-    renderChatList();
 }
 
 function renderMessages() {
-    const wrap = document.getElementById('messages-wrap');
-    const msgs = state.messages.filter(m =>
-        state.activeChat && (
-            m.chatId === state.activeChat.id ||
-            m.from === state.activeChat.id ||
-            m.to === state.activeChat.id
-        )
-    );
+    const container = document.getElementById('messages-container');
+    container.innerHTML = '';
 
-    wrap.innerHTML = msgs.map(msg => buildMsgHTML(msg)).join('');
-    scrollToBottom();
-}
-
-function appendMessage(msg) {
-    const exists = state.messages.find(m => m.id === msg.id);
-    if (exists) {
-        state.messages = state.messages.map(m =>
-            m.id === msg.id ? { ...m, senderName: m.senderName || msg.senderName } : m
-        );
-    } else {
-        state.messages.push(msg);
+    if (state.messages.length === 0) {
+        container.innerHTML = `<div style="color:var(--text-light);font-size:13px;text-align:center;margin:auto">Nenhuma mensagem nesta conversa.</div>`;
+        return;
     }
 
-    const wrap = document.getElementById('messages-wrap');
-    if (exists) {
-        renderMessages();
-    } else {
-        wrap.insertAdjacentHTML('beforeend', buildMsgHTML(msg));
-        scrollToBottom();
-    }
-}
-
-function buildMsgHTML(msg) {
-    const isOut = msg.fromMe;
-    const senderLabel = msg.senderName
-        ? (msg.senderName === state.user?.name ? 'Você' : msg.senderName)
-        : null;
-
-    let bodyHTML = '';
-    if (msg.type === 'call_log') {
-        bodyHTML = `<div class="msg-call">📞 Chamada de voz/vídeo</div>`;
-    } else if (msg.hasMedia) {
-        bodyHTML = `<div class="msg-media-loading"><div class="mini-spinner"></div> Carregando mídia...</div>`;
-    } else {
-        bodyHTML = `<div class="msg-body">${formatText(msg.body) || '<em style="color:#8696a0">Mensagem vazia</em>'}</div>`;
-    }
-
-    return `<div class="msg-row ${isOut ? 'out' : 'in'}" data-msgid="${msg.id}">
-        <div class="msg-bubble">
-            ${isOut && senderLabel ? `<div class="msg-sender ${senderLabel !== 'Você' ? 'other' : ''}">${senderLabel}</div>` : ''}
-            ${bodyHTML}
-            <div class="msg-time">${formatMsgTime(msg.timestamp)}</div>
-        </div>
-    </div>`;
-}
-
-// Carrega mídias lazy
-const mediaObserver = new IntersectionObserver((entries) => {
-    entries.forEach(async (entry) => {
-        if (!entry.isIntersecting) return;
-        const el = entry.target;
-        const msgId = el.closest('[data-msgid]')?.dataset.msgid;
-        if (!msgId) return;
-        const msg = state.messages.find(m => m.id === msgId);
-        if (!msg?.hasMedia) return;
-        mediaObserver.unobserve(el);
-        try {
-            const res = await fetch(`${BACKEND_URL}/api/messages/${encodeURIComponent(msgId)}/media`);
-            const data = await res.json();
-            if (data.error || !data.data) {
-                el.innerHTML = '<div style="font-size:12px;color:#e74c3c">Mídia indisponível</div>';
-                return;
-            }
-            const src = `data:${data.mimetype};base64,${data.data}`;
-            const type = msg.type;
-            let mediaHTML = '';
-            if (type === 'image') mediaHTML = `<img class="msg-img" src="${src}" alt="Imagem" onclick="window.open('${src}','_blank')" />`;
-            else if (type === 'video') mediaHTML = `<video class="msg-video" src="${src}" controls></video>`;
-            else if (type === 'audio' || type === 'ptt') mediaHTML = `<audio class="msg-audio" src="${src}" controls></audio>`;
-            else mediaHTML = `<a class="msg-file" href="${src}" download="${data.filename||'arquivo'}"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#2563eb" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg><span>${data.filename||'Documento'}</span></a>`;
-            el.innerHTML = mediaHTML + (msg.body ? `<div class="msg-body" style="margin-top:4px">${formatText(msg.body)}</div>` : '');
-        } catch (e) {
-            el.innerHTML = '<div style="font-size:12px;color:#e74c3c">Erro ao carregar mídia</div>';
+    state.messages.forEach(msg => {
+        const bubble = document.createElement('div');
+        
+        let isOut = false;
+        if (state.activeChat.isInternal) {
+            // Em chat interno, de_mim se o remetente for eu
+            isOut = msg.senderName === state.user.name || msg.fromMe;
+        } else {
+            isOut = msg.fromMe;
         }
-    });
-}, { threshold: 0.1 });
 
-// Observa elementos de loading de mídia
-const msgObserver = new MutationObserver(() => {
-    document.querySelectorAll('.msg-media-loading').forEach(el => {
-        if (!el.dataset.observed) { el.dataset.observed = '1'; mediaObserver.observe(el); }
-    });
-});
-msgObserver.observe(document.getElementById('messages-wrap') || document.body, { childList: true, subtree: true });
+        bubble.className = `message-bubble ${isOut ? 'outgoing' : 'incoming'}`;
+        
+        let contentHtml = '';
+        
+        // Remetente em grupos ou chat interno
+        if (!isOut && (state.activeChat.isGroup || state.activeChat.isInternal)) {
+            const sender = msg.senderName || 'Colega';
+            contentHtml += `<span class="msg-sender user">${sender}</span>`;
+        }
 
-function scrollToBottom() {
-    const wrap = document.getElementById('messages-wrap');
-    if (wrap) wrap.scrollTop = wrap.scrollHeight;
+        // Tratamento de Mídia
+        if (msg.hasMedia) {
+            contentHtml += `
+                <div class="msg-media" onclick="viewMedia('${msg.id}')" id="media-${msg.id}">
+                    <span style="font-size:12px;color:var(--text-secondary)">📁 Carregando mídia...</span>
+                </div>`;
+            loadMediaThumbnail(msg.id);
+        }
+
+        if (msg.body) {
+            contentHtml += `<span class="msg-body">${formatMsgText(msg.body)}</span>`;
+        }
+
+        const date = new Date(msg.timestamp * 1000);
+        contentHtml += `
+            <span class="msg-meta">
+                ${date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                ${isOut ? '✓✓' : ''}
+            </span>`;
+
+        bubble.innerHTML = contentHtml;
+        container.appendChild(bubble);
+    });
+
+    container.scrollTop = container.scrollHeight;
 }
 
-// ── Envio de Mensagem ─────────────────────────────────────────
-function handleInputKey(e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+function formatMsgText(txt) {
+    return txt
+        .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
+        .replace(/_(.*?)_/g, '<em>$1</em>')
+        .replace(/~(.*?)~/g, '<del>$1</del>');
 }
 
-function sendMessage() {
-    const input = document.getElementById('msg-input');
+async function loadMediaThumbnail(msgId) {
+    try {
+        const res = await apiFetch(`/api/messages/${encodeURIComponent(msgId)}/media`);
+        const media = await res.json();
+        const container = document.getElementById(`media-${msgId}`);
+        if (!container) return;
+
+        if (media.mimetype.startsWith('image/')) {
+            container.innerHTML = `<img src="data:${media.mimetype};base64,${media.data}" alt="Mídia" />`;
+        } else if (media.mimetype.startsWith('video/')) {
+            container.innerHTML = `<video src="data:${media.mimetype};base64,${media.data}" class="msg-media-video" controls></video>`;
+        } else {
+            container.innerHTML = `
+                <div class="msg-media-doc">
+                    <span>📄</span>
+                    <div style="text-align:left; min-width:0;">
+                        <div style="font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${media.filename || 'Documento'}</div>
+                        <a href="data:${media.mimetype};base64,${media.data}" download="${media.filename || 'arquivo'}" style="color:var(--primary);font-size:11px;font-weight:700">Baixar Arquivo</a>
+                    </div>
+                </div>`;
+        }
+    } catch (e) {
+        const container = document.getElementById(`media-${msgId}`);
+        if (container) container.innerHTML = `<span style="font-size:11px;color:#ef4444">Erro ao carregar mídia</span>`;
+    }
+}
+
+// ── Envio de Mensagens ────────────────────────────────────────
+async function sendMessage() {
+    const input = document.getElementById('chat-message-input');
     const text = input.value.trim();
-    if ((!text && !state.selectedFile) || !state.activeChat || !state.socket) return;
+    if (!text && !state.selectedFile) return;
 
-    state.socket.emit('send_message', {
+    const payload = {
+        companyId: state.user.company_id,
         loginName: state.user.name,
+        userId: state.user.id,
         chatId: state.activeChat.id,
-        text,
-        fileData: state.selectedFile,
-    });
+        text: text,
+        isInternal: state.activeChat.isInternal,
+        receiverName: state.activeChat.isInternal ? state.activeChat.name : null
+    };
 
+    if (state.selectedFile) {
+        payload.fileData = state.selectedFile;
+    }
+
+    // Append otimista imediato no chat interno
+    if (state.activeChat.isInternal) {
+        const optimistMsg = {
+            id: 'temp-' + Date.now(),
+            fromMe: true,
+            senderName: state.user.name,
+            body: text,
+            timestamp: Date.now() / 1000,
+            hasMedia: !!state.selectedFile
+        };
+        state.messages.push(optimistMsg);
+        renderMessages();
+    }
+
+    state.socket.emit('send_message', payload);
+    
+    // Limpar campos
     input.value = '';
     clearFile();
 }
 
-function handleFileSelect(e) {
+function handleMessageKeydown(e) {
+    if (e.key === 'Enter') sendMessage();
+}
+
+// Anexo de Arquivos
+function handleFileSelected(e) {
     const file = e.target.files[0];
     if (!file) return;
+
     const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-        state.selectedFile = { name: file.name, mimetype: file.type, data: reader.result, preview: file.type.startsWith('image/') ? reader.result : null };
-        showFilePreview();
-    };
-    e.target.value = '';
-}
-
-function handlePaste(e) {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    for (let item of items) {
-        if (item.type.indexOf('image') !== -1) {
-            const file = item.getAsFile();
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => {
-                state.selectedFile = { name: 'imagem-colada.png', mimetype: file.type, data: reader.result, preview: reader.result };
-                showFilePreview();
-            };
-            e.preventDefault();
-            break;
+    reader.onload = function(evt) {
+        state.selectedFile = {
+            name: file.name,
+            mimetype: file.type,
+            data: evt.target.result
+        };
+        
+        // Show Preview
+        const preview = document.getElementById('file-preview');
+        const nameEl = document.getElementById('file-preview-name');
+        const thumb = document.getElementById('file-preview-thumb');
+        
+        preview.classList.remove('hidden');
+        nameEl.textContent = file.name;
+        
+        if (file.type.startsWith('image/')) {
+            thumb.innerHTML = `<img src="${evt.target.result}" class="file-preview-thumb" />`;
+        } else {
+            thumb.innerHTML = `<div class="file-preview-icon">📄</div>`;
         }
-    }
-}
-
-function showFilePreview() {
-    const f = state.selectedFile;
-    const preview = document.getElementById('file-preview');
-    const thumb = document.getElementById('file-preview-thumb');
-    const name = document.getElementById('file-preview-name');
-    preview.classList.remove('hidden');
-    name.textContent = f.name;
-    thumb.innerHTML = f.preview
-        ? `<img src="${f.preview}" class="file-preview-thumb" style="width:40px;height:40px;object-fit:cover;border-radius:6px;" />`
-        : `<div class="file-preview-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg></div>`;
+    };
+    reader.readAsDataURL(file);
 }
 
 function clearFile() {
@@ -1262,354 +1278,776 @@ function clearFile() {
     document.getElementById('file-input').value = '';
 }
 
-// ── Marcar como não lida ──────────────────────────────────────
-async function markUnread(e, chatId) {
-    e.stopPropagation();
-    setChats(state.chats.map(c => c.id === chatId ? { ...c, unreadCount: -1 } : c));
-    await fetch(`${BACKEND_URL}/api/chats/${encodeURIComponent(chatId)}/unread`, { method: 'POST' }).catch(() => {});
-}
+// Processar Mensagem Recebida via Socket
+function handleIncomingMessage(msg) {
+    let shouldAppend = false;
 
-async function markChatUnread() {
-    if (!state.activeChat) return;
-    await markUnread({ stopPropagation: () => {} }, state.activeChat.id);
-}
+    if (state.activeChat) {
+        if (state.activeChat.isInternal && msg.isInternal) {
+            // Em chat interno, a mensagem pertence a esta conversa se for entre eu e o usuário ativo
+            shouldAppend = (msg.senderName === state.user.name && msg.receiverName === state.activeChat.name) ||
+                           (msg.senderName === state.activeChat.name && msg.receiverName === state.user.name);
+        } else if (!state.activeChat.isInternal && !msg.isInternal) {
+            shouldAppend = msg.chatId === state.activeChat.id;
+        }
+    }
 
-// ── Painel Admin ──────────────────────────────────────────────
-function openAdmin() {
-    showView('admin');
-    if (state.adminAuthed) {
-        renderAdminPanel();
-    } else {
-        renderAdminLogin();
+    if (shouldAppend) {
+        // Evita duplicatas de mensagens otimistas
+        if (!state.messages.some(m => m.id === msg.id)) {
+            state.messages.push(msg);
+            renderMessages();
+        }
+    }
+
+    // Notificações para mensagens que não foram enviadas por mim
+    const isMyMessage = msg.senderName === state.user.name || msg.fromMe;
+    if (!isMyMessage) {
+        playNotifSound();
+        
+        let notifTitle = 'ZappTor';
+        let notifBody = msg.body || '📎 Arquivo recebido';
+
+        if (msg.isInternal) {
+            if (msg.receiverName === state.user.name) {
+                notifTitle = `Mensagem Interna de ${msg.senderName}`;
+                showNotif(notifTitle, notifBody);
+                if (state.activeSidebarTab === 'internal') fetchInternalUsers();
+            }
+        } else {
+            const chatName = state.chats.find(c => c.id === msg.chatId)?.name || 'Nova Mensagem';
+            notifTitle = `WhatsApp: ${chatName}`;
+            showNotif(notifTitle, notifBody);
+            if (state.activeSidebarTab === 'wpp') fetchChats();
+        }
+
+        // Atualiza título da página
+        state.unreadCount++;
+        document.title = `(${state.unreadCount}) ZappTor`;
     }
 }
 
-function closeAdmin() {
-    const prev = state.user ? 'chat' : (state.isReady ? 'login' : 'qr');
-    showView(prev);
+// Marcar Chat como não lida
+async function markChatUnread() {
+    if (!state.activeChat || state.activeChat.isInternal) return;
+    try {
+        await apiFetch(`/api/chats/${encodeURIComponent(state.activeChat.id)}/unread`, { method: 'POST' });
+        showNotif('Concluído', 'Conversa marcada como não lida.');
+        fetchChats();
+    } catch (e) {}
 }
 
-function handleAdminBackdrop(e) {
-    if (e.target === document.getElementById('view-admin')) closeAdmin();
-}
 
-// ── Painel Root ──────────────────────────────────────────────
+// ── Painel Root (Gerenciamento Global) ─────────────────────────
 function openRoot() {
-    state.rootAuthed = false;
-    state.rootKey = null;
     document.getElementById('view-root').classList.add('active');
-    renderRootLogin();
+    switchRootTab('companies');
 }
 
 function closeRoot() {
     document.getElementById('view-root').classList.remove('active');
+    // Se saiu do Root e não tem usuário comum logado, volta pro login
+    if (!state.user || state.user.role === 'root') logout();
 }
 
 function handleRootBackdrop(e) {
     if (e.target === document.getElementById('view-root')) closeRoot();
 }
 
-function renderRootLogin() {
-    document.getElementById('root-body').innerHTML = `
-        <div class="admin-login-wrap">
-            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="#25d366" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            <h3>Acesso Root</h3>
-            <p style="font-size:13px;color:#8696a0;text-align:center">Digite a chave Root do sistema para gerenciar as empresas.</p>
-            <input id="root-key-input" type="password" placeholder="Chave de Root (ROOT_KEY)" />
-            <div class="error-msg" id="root-key-error"></div>
-            <button class="btn-primary" style="width:100%" onclick="submitRootKey()">Entrar</button>
-        </div>`;
-    document.getElementById('root-key-input').addEventListener('keydown', e => { if (e.key === 'Enter') submitRootKey(); });
+function switchRootTab(tab) {
+    state.activeRootTab = tab;
+    document.getElementById('nav-root-companies').classList.toggle('active', tab === 'companies');
+    document.getElementById('nav-root-installments').classList.toggle('active', tab === 'installments');
+    
+    renderRootTabContent();
 }
 
-async function submitRootKey() {
-    const key = document.getElementById('root-key-input').value;
-    const errEl = document.getElementById('root-key-error');
+async function renderRootTabContent() {
+    const el = document.getElementById('root-body-content');
+    el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%"><div class="spinner"></div></div>`;
+
+    if (state.activeRootTab === 'companies') {
+        try {
+            const res = await apiFetch('/api/root/companies');
+            const companies = await res.json();
+            
+            el.innerHTML = `
+                <div class="form-grid">
+                    <div>
+                        <div class="admin-section-title">Empresas Cadastradas (${companies.length})</div>
+                        <div class="company-list">
+                            ${companies.map(c => `
+                                <div class="user-item">
+                                    <div class="user-item-info">
+                                        <div style="font-weight:700">${c.name}</div>
+                                        <div style="font-size:12px;color:var(--text-secondary)">Slug: ${c.slug} | Plano: <strong style="color:var(--primary-dark)">${c.plan}</strong></div>
+                                        <div style="font-size:11px;color:var(--text-light)">Fone: ${c.phone_number || 'Qualquer'} | Vence: ${c.due_date ? new Date(c.due_date).toLocaleDateString() : 'N/A'}</div>
+                                    </div>
+                                    <span class="badge ${c.active ? 'green' : 'red'}">${c.active ? 'Ativa' : 'Inativa'}</span>
+                                    <button class="btn-toggle ${c.active ? 'disable' : 'enable'}" onclick="toggleCompanyStatus('${c.id}', ${!c.active})">
+                                        ${c.active ? 'Bloquear' : 'Ativar'}
+                                    </button>
+                                    <button class="btn-delete" onclick="deleteCompany('${c.id}', '${c.name}')">🗑️</button>
+                                </div>`).join('')}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="admin-section-title">Criar Nova Empresa</div>
+                        <form id="new-company-form" onsubmit="handleCreateCompany(event)" style="display:flex;flex-direction:column;gap:12px;">
+                            <div class="form-group">
+                                <label>Nome da Empresa</label>
+                                <input id="rc-name" type="text" placeholder="Ex: SysImperium" required />
+                            </div>
+                            <div class="form-group">
+                                <label>Código de Acesso (Slug Único)</label>
+                                <input id="rc-slug" type="text" placeholder="Ex: sysimperium" required />
+                            </div>
+                            <div class="form-group">
+                                <label>Plano ZappTor</label>
+                                <select id="rc-plan" required>
+                                    <option value="START">START - R$ 79,00 (10 users, 1 fone, s/equipe)</option>
+                                    <option value="TEAM">TEAM - R$ 149,00 (20 users, 1 fone, 2 equipes)</option>
+                                    <option value="BUSINESS">BUSINESS - R$ 249,00 (40 users, 2 fones, 4 equipes)</option>
+                                    <option value="ENTERPRISE">ENTERPRISE - R$ 399,00 (Ilimitado)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>WhatsApp Autorizado (Número c/ DDD)</label>
+                                <input id="rc-phone" type="text" placeholder="Ex: 5511999999999 (opcional)" />
+                            </div>
+                            <div class="form-group">
+                                <label>Nome do Usuário Admin Principal</label>
+                                <input id="rc-admin-name" type="text" value="Admin" required />
+                            </div>
+                            <div class="form-group">
+                                <label>Senha do Admin</label>
+                                <input id="rc-admin-pass" type="password" placeholder="Defina a senha do admin" required />
+                            </div>
+                            <div class="form-group">
+                                <label>WhatsApp de Contato do Admin</label>
+                                <input id="rc-admin-contact" type="text" placeholder="Ex: 5511999999999" />
+                            </div>
+                            <div class="form-group">
+                                <label>Vencimento da Mensalidade</label>
+                                <input id="rc-due" type="date" required />
+                            </div>
+                            <button type="submit" class="btn-primary" style="margin-top:10px">+ Cadastrar Empresa</button>
+                        </form>
+                    </div>
+                </div>`;
+        } catch (e) {
+            el.innerHTML = `<div style="color:#ef4444;padding:24px">Erro ao carregar empresas.</div>`;
+        }
+    } else if (state.activeRootTab === 'installments') {
+        try {
+            // Mensalidades
+            const cRes = await apiFetch('/api/root/companies');
+            const companies = await cRes.json();
+
+            const iRes = await apiFetch('/api/root/installments');
+            const installments = await iRes.json();
+
+            el.innerHTML = `
+                <div class="form-grid">
+                    <div>
+                        <div class="admin-section-title">Gerador de Mensalidade</div>
+                        <form id="generate-bill-form" onsubmit="handleGenerateBill(event)" style="display:flex;flex-direction:column;gap:12px">
+                            <div class="form-group">
+                                <label>Selecione a Empresa</label>
+                                <select id="gb-company" required>
+                                    ${companies.map(c => `<option value="${c.id}">${c.name} (${c.plan})</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Data de Vencimento</label>
+                                <input id="gb-due" type="date" required />
+                            </div>
+                            <div class="form-group">
+                                <label>Valor (R$)</label>
+                                <input id="gb-amount" type="number" step="0.01" placeholder="Ex: 149.00" required />
+                            </div>
+                            <div class="form-group">
+                                <label>Status Inicial</label>
+                                <select id="gb-status" required>
+                                    <option value="pendente">Pendente</option>
+                                    <option value="agendada">Agendada (Futura)</option>
+                                    <option value="paga">Paga</option>
+                                    <option value="atrasada">Atrasada</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn-primary" style="margin-top:10px">+ Gerar Mensalidade</button>
+                        </form>
+                    </div>
+                    <div>
+                        <div class="admin-section-title">Mensalidades do Sistema (${installments.length})</div>
+                        <div class="company-list">
+                            ${installments.map(i => {
+                                let statusClass = 'gray';
+                                if (i.status === 'paga') statusClass = 'green';
+                                if (i.status === 'pendente') statusClass = 'yellow';
+                                if (i.status === 'atrasada') statusClass = 'red';
+                                if (i.status === 'agendada') statusClass = 'blue';
+
+                                return `
+                                    <div class="user-item">
+                                        <div class="user-item-info">
+                                            <div style="font-weight:700">${i.companies?.name || 'Empresa Excluída'}</div>
+                                            <div style="font-size:12px;color:var(--text-secondary)">Vence em: ${new Date(i.due_date).toLocaleDateString()}</div>
+                                            <div style="font-size:13px;font-weight:700;color:var(--primary-dark)">R$ ${parseFloat(i.amount).toFixed(2)}</div>
+                                        </div>
+                                        <span class="badge ${statusClass}">${i.status}</span>
+                                        <div style="display:flex; flex-direction:column; gap:4px">
+                                            <select style="font-size:11px;padding:3px" onchange="changeBillStatus('${i.id}', this.value)">
+                                                <option value="pendente" ${i.status === 'pendente'?'selected':''}>Pendente</option>
+                                                <option value="paga" ${i.status === 'paga'?'selected':''}>Paga</option>
+                                                <option value="atrasada" ${i.status === 'atrasada'?'selected':''}>Atrasada</option>
+                                                <option value="agendada" ${i.status === 'agendada'?'selected':''}>Agendada</option>
+                                            </select>
+                                            <button class="btn-delete" style="font-size:11px;padding:3px" onclick="deleteBill('${i.id}')">Excluir</button>
+                                        </div>
+                                    </div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>`;
+        } catch (e) {
+            el.innerHTML = `<div style="color:#ef4444;padding:24px">Erro ao carregar faturas de mensalidades.</div>`;
+        }
+    }
+}
+
+async function handleCreateCompany(e) {
+    e.preventDefault();
+    const payload = {
+        name: document.getElementById('rc-name').value.trim(),
+        slug: document.getElementById('rc-slug').value.trim().toLowerCase(),
+        plan: document.getElementById('rc-plan').value,
+        phone_number: document.getElementById('rc-phone').value.trim(),
+        adminName: document.getElementById('rc-admin-name').value.trim(),
+        adminPassword: document.getElementById('rc-admin-pass').value,
+        adminWhatsapp: document.getElementById('rc-admin-contact').value.trim(),
+        due_date: document.getElementById('rc-due').value
+    };
+
     try {
-        const res = await fetch(`${BACKEND_URL}/api/root/login`, {
+        const res = await apiFetch('/api/root/companies', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key })
-        });
-        if (res.status === 401) {
-            errEl.textContent = 'Chave incorreta.'; errEl.classList.add('show'); return;
-        }
-        state.rootKey = key;
-        state.rootAuthed = true;
-        renderRootPanel();
-    } catch (e) {
-        errEl.textContent = 'Erro de conexão.'; errEl.classList.add('show');
-    }
-}
-
-async function renderRootPanel() {
-    const body = document.getElementById('root-body');
-    body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:30px"><div class="spinner"></div></div>`;
-
-    try {
-        const res = await fetch(`${BACKEND_URL}/api/root/companies`, { headers: { 'x-root-key': state.rootKey } });
-        const companies = await res.json();
-        if (companies && companies.error) {
-            throw new Error(companies.error);
-        }
-        if (!Array.isArray(companies)) {
-            throw new Error('Resposta inválida do servidor.');
-        }
-
-        body.innerHTML = `
-            <div>
-                <div class="admin-section-title">Cadastrar Nova Empresa</div>
-                <div style="display:flex;flex-direction:column;gap:10px">
-                    <input id="new-company-name" type="text" placeholder="Nome da Empresa (ex: SysImperium)" style="width:100%;padding:10px;border:1px solid #e9edef;border-radius:10px" />
-                    <input id="new-company-slug" type="text" placeholder="Slug da Empresa (ex: sysimperium)" style="width:100%;padding:10px;border:1px solid #e9edef;border-radius:10px" />
-                    <input id="new-company-admin" type="text" placeholder="Nome do Admin padrão (ex: Admin)" value="Admin" style="width:100%;padding:10px;border:1px solid #e9edef;border-radius:10px" />
-                    <button class="btn-primary" onclick="addCompany()" style="align-self:flex-end">+ Criar Empresa</button>
-                </div>
-                <div class="error-msg" id="add-company-error" style="margin-top:8px"></div>
-            </div>
-            <div>
-                <div class="admin-section-title">Empresas Cadastradas (${companies.length})</div>
-                <div class="user-list" id="company-list">
-                    ${companies.length === 0
-                        ? '<div style="color:#8696a0;font-size:14px;text-align:center;padding:20px">Nenhuma empresa cadastrada.</div>'
-                        : companies.map(c => `
-                            <div class="user-item ${!c.active ? 'user-item-inactive' : ''}" style="gap: 12px; align-items: center">
-                                <div style="flex:1">
-                                    <div style="font-weight:600;font-size:14px">${c.name}</div>
-                                    <div style="font-size:12px;color:#8696a0">Slug: ${c.slug}</div>
-                                </div>
-                                <span class="user-item-role ${c.active ? 'role-admin' : 'role-user'}" style="margin-right:0">${c.active ? 'Ativa' : 'Inativa'}</span>
-                                <button class="btn-toggle ${c.active ? 'disable' : 'enable'}" onclick="toggleCompany('${c.id}', ${!c.active})">
-                                    ${c.active ? 'Desativar' : 'Ativar'}
-                                </button>
-                                <button class="btn-delete" onclick="deleteCompany('${c.id}','${c.name}')" title="Excluir">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
-                                </button>
-                            </div>`).join('')}
-                </div>
-            </div>`;
-    } catch (e) {
-        body.innerHTML = `<div style="color:#c0392b;padding:20px">Erro ao carregar painel root: ${e.message}</div>`;
-    }
-}
-
-async function addCompany() {
-    const nameEl = document.getElementById('new-company-name');
-    const slugEl = document.getElementById('new-company-slug');
-    const adminEl = document.getElementById('new-company-admin');
-    const errEl = document.getElementById('add-company-error');
-    errEl.classList.remove('show');
-
-    const name = nameEl.value.trim();
-    const slug = slugEl.value.trim();
-    const adminName = adminEl.value.trim();
-
-    if (!name || !slug || !adminName) {
-        errEl.textContent = 'Preencha todos os campos.'; errEl.classList.add('show'); return;
-    }
-
-    try {
-        const res = await fetch(`${BACKEND_URL}/api/root/companies`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-root-key': state.rootKey
-            },
-            body: JSON.stringify({ name, slug, adminName })
+            body: JSON.stringify(payload)
         });
         const data = await res.json();
-        if (res.status !== 200) {
-            errEl.textContent = data.error || 'Erro ao criar empresa.'; errEl.classList.add('show'); return;
+        
+        if (res.status === 200) {
+            showNotif('Empresa Criada', `Empresa "${payload.name}" cadastrada com sucesso.`);
+            renderRootTabContent();
+        } else {
+            showNotif('Erro ao criar', data.error || 'Falha na requisição.', true);
         }
-        showNotif('Empresa Criada', `A empresa "${name}" foi cadastrada com sucesso!`);
-        renderRootPanel();
-    } catch (e) {
-        errEl.textContent = 'Erro ao conectar ao servidor.'; errEl.classList.add('show');
+    } catch (err) {
+        showNotif('Erro', 'Falha ao conectar no servidor.', true);
     }
 }
 
-async function toggleCompany(id, active) {
+async function toggleCompanyStatus(id, active) {
     try {
-        const res = await fetch(`${BACKEND_URL}/api/root/companies/${id}`, {
+        await apiFetch(`/api/root/companies/${id}`, {
             method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-root-key': state.rootKey
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ active })
         });
-        if (res.status === 200) {
-            renderRootPanel();
-        } else {
-            const data = await res.json();
-            showNotif('Erro', data.error || 'Erro ao alterar status da empresa.', true);
-        }
-    } catch (e) {
-        showNotif('Erro', 'Erro ao conectar ao servidor.', true);
-    }
+        showNotif('Status Alterado', 'Empresa atualizada.');
+        renderRootTabContent();
+    } catch (e) {}
 }
 
 async function deleteCompany(id, name) {
-    if (!confirm(`Tem certeza que deseja excluir a empresa "${name}"?\nIsso apagará TODOS os usuários e histórico de mensagens dela definitivamente!`)) return;
+    if (!confirm(`Excluir empresa "${name}" definitivamente? Todas as mensagens e colaboradores associados serão apagados.`)) return;
     try {
-        const res = await fetch(`${BACKEND_URL}/api/root/companies/${id}`, {
-            method: 'DELETE',
-            headers: { 'x-root-key': state.rootKey }
-        });
-        if (res.status === 200) {
-            showNotif('Empresa Excluída', `A empresa "${name}" foi removida.`);
-            renderRootPanel();
-        } else {
-            const data = await res.json();
-            showNotif('Erro', data.error || 'Erro ao excluir empresa.', true);
-        }
-    } catch (e) {
-        showNotif('Erro', 'Erro ao conectar ao servidor.', true);
-    }
+        await apiFetch(`/api/root/companies/${id}`, { method: 'DELETE' });
+        showNotif('Empresa Apagada', 'Excluída com sucesso.');
+        renderRootTabContent();
+    } catch (e) {}
 }
 
-function renderAdminLogin() {
-    document.getElementById('admin-body').innerHTML = `
-        <div class="admin-login-wrap">
-            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="#25d366" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            <h3>Acesso de Administrador</h3>
-            <p style="font-size:13px;color:#8696a0;text-align:center">Digite a chave de administrador configurada no servidor.</p>
-            <input id="admin-key-input" type="password" placeholder="Chave de admin (ADMIN_KEY)" />
-            <div class="error-msg" id="admin-key-error"></div>
-            <button class="btn-primary" style="width:100%" onclick="submitAdminKey()">Entrar</button>
-        </div>`;
-    document.getElementById('admin-key-input').addEventListener('keydown', e => { if (e.key === 'Enter') submitAdminKey(); });
-}
-
-async function submitAdminKey() {
-    const key = document.getElementById('admin-key-input').value;
-    const errEl = document.getElementById('admin-key-error');
-    try {
-        const res = await fetch(`${BACKEND_URL}/api/admin/users`, { headers: { 'x-admin-key': key } });
-        if (res.status === 401) {
-            errEl.textContent = 'Chave incorreta.'; errEl.classList.add('show'); return;
-        }
-        state.adminKey = key;
-        state.adminAuthed = true;
-        renderAdminPanel();
-    } catch (e) {
-        errEl.textContent = 'Erro de conexão.'; errEl.classList.add('show');
-    }
-}
-
-async function renderAdminPanel() {
-    const body = document.getElementById('admin-body');
-    body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:30px"><div class="spinner"></div></div>`;
+async function handleGenerateBill(e) {
+    e.preventDefault();
+    const payload = {
+        company_id: document.getElementById('gb-company').value,
+        due_date: document.getElementById('gb-due').value,
+        amount: parseFloat(document.getElementById('gb-amount').value),
+        status: document.getElementById('gb-status').value
+    };
 
     try {
-        const res = await fetch(`${BACKEND_URL}/api/admin/users`, { headers: { 'x-admin-key': state.adminKey } });
-        const users = await res.json();
-        if (users && users.error) {
-            throw new Error(users.error);
-        }
-        if (!Array.isArray(users)) {
-            throw new Error('Resposta inválida do servidor.');
-        }
-
-        // WhatsApp status
-        const statusRes = await fetch(`${BACKEND_URL}/api/status`);
-        const statusData = await statusRes.json();
-
-        body.innerHTML = `
-            <div>
-                <div class="admin-section-title">Status do WhatsApp</div>
-                <div class="admin-whatsapp-info">
-                    <div class="label">Conexão</div>
-                    <div class="value" style="color:${statusData.ready ? '#1a7a3f' : '#c0392b'}">
-                        ${statusData.ready ? '✅ Conectado e pronto' : '❌ Desconectado'}
-                    </div>
-                    ${!statusData.ready && statusData.hasQR ? `
-                    <div class="label" style="margin-top:8px">QR Code disponível:</div>
-                    <button class="btn-add" onclick="document.getElementById('view-admin').classList.remove('active');showView('qr')" style="margin-top:6px;display:inline-block">Ver QR Code para escanear</button>` : ''}
-                </div>
-            </div>
-            <div>
-                <div class="admin-section-title">Adicionar Usuário</div>
-                <div class="admin-add-form">
-                    <input id="new-user-name" type="text" placeholder="Nome do usuário (ex: Maria - RH)" />
-                    <button class="btn-add" onclick="addUser()">+ Adicionar</button>
-                </div>
-                <div class="error-msg" id="add-user-error" style="margin-top:8px"></div>
-            </div>
-            <div>
-                <div class="admin-section-title">Usuários Cadastrados (${users.length})</div>
-                <div class="user-list" id="user-list">
-                    ${users.length === 0
-                        ? '<div style="color:#8696a0;font-size:14px;text-align:center;padding:20px">Nenhum usuário cadastrado.</div>'
-                        : users.map(u => `
-                            <div class="user-item ${!u.active ? 'user-item-inactive' : ''}">
-                                <div class="avatar sm" style="background:${getAvatarColor(u.name)}">${getInitials(u.name)}</div>
-                                <div class="user-item-name">${u.name}</div>
-                                <span class="user-item-role ${u.role === 'admin' ? 'role-admin' : 'role-user'}">${u.role === 'admin' ? 'Admin' : 'Usuário'}</span>
-                                <button class="btn-toggle ${u.active ? 'disable' : 'enable'}" onclick="toggleUser('${u.id}', ${!u.active})">
-                                    ${u.active ? 'Desativar' : 'Ativar'}
-                                </button>
-                                <button class="btn-delete" onclick="deleteUser('${u.id}','${u.name}')" title="Excluir">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
-                                </button>
-                            </div>`).join('')}
-                </div>
-            </div>
-            <div style="font-size:12px;color:#8696a0;padding-top:8px;border-top:1px solid #e9edef">
-                <strong>Dica:</strong> Apenas nomes cadastrados e ativos podem fazer login no ZapTor.
-            </div>`;
-
-        document.getElementById('new-user-name').addEventListener('keydown', e => { if (e.key === 'Enter') addUser(); });
-    } catch (e) {
-        body.innerHTML = `<div style="color:#c0392b;padding:20px">Erro ao carregar painel: ${e.message}</div>`;
-    }
-}
-
-async function addUser() {
-    const nameEl = document.getElementById('new-user-name');
-    const errEl = document.getElementById('add-user-error');
-    const name = nameEl.value.trim();
-    if (!name) return;
-
-    errEl.classList.remove('show');
-    try {
-        const res = await fetch(`${BACKEND_URL}/api/admin/users`, {
+        await apiFetch('/api/root/installments', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-admin-key': state.adminKey },
-            body: JSON.stringify({ name }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        showNotif('Sucesso', 'Mensalidade gerada com sucesso.');
+        renderRootTabContent();
+    } catch (err) {
+        showNotif('Erro', 'Não foi possível gerar mensalidade.', true);
+    }
+}
+
+async function changeBillStatus(id, status) {
+    try {
+        await apiFetch(`/api/root/installments/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+        });
+        showNotif('Sucesso', 'Status da mensalidade atualizado.');
+        renderRootTabContent();
+    } catch (e) {}
+}
+
+async function deleteBill(id) {
+    if (!confirm('Deseja excluir esta fatura de mensalidade?')) return;
+    try {
+        await apiFetch(`/api/root/installments/${id}`, { method: 'DELETE' });
+        showNotif('Sucesso', 'Mensalidade excluída.');
+        renderRootTabContent();
+    } catch (e) {}
+}
+
+
+// ── Painel do Administrador (Empresa) ───────────────────────────
+function openAdmin() {
+    document.getElementById('view-admin').classList.add('active');
+    document.getElementById('admin-panel-company-title').textContent = state.company.name;
+    switchAdminTab('wpp');
+}
+
+function closeAdmin() {
+    document.getElementById('view-admin').classList.remove('active');
+}
+
+function handleAdminBackdrop(e) {
+    if (e.target === document.getElementById('view-admin')) closeAdmin();
+}
+
+function switchAdminTab(tab) {
+    state.activeAdminTab = tab;
+    
+    // UI Classes
+    document.querySelectorAll('.admin-nav-item').forEach(b => b.classList.remove('active'));
+    document.getElementById(`nav-${tab}`).classList.add('active');
+    
+    renderAdminTabContent();
+}
+
+async function renderAdminTabContent() {
+    const el = document.getElementById('admin-body-content');
+    el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%"><div class="spinner"></div></div>`;
+
+    const limits = PLAN_LIMITS[state.company.plan] || PLAN_LIMITS['START'];
+
+    if (state.activeAdminTab === 'wpp') {
+        // Conexão WhatsApp
+        try {
+            const res = await apiFetch('/api/status');
+            const data = await res.json();
+            
+            el.innerHTML = `
+                <div>
+                    <div class="admin-section-title">Conexão do WhatsApp da Empresa</div>
+                    <div class="admin-whatsapp-card">
+                        <div style="flex:1">
+                            <h4 style="font-size:16px; margin-bottom:8px">Status do WhatsApp</h4>
+                            <p style="font-size:14px; color:var(--text-secondary)">
+                                Conectado: ${data.ready ? '<strong style="color:var(--primary-light)">SIM ✓</strong>' : '<strong style="color:#ef4444">NÃO ❌</strong>'}
+                            </p>
+                            ${data.ready ? `
+                                <button class="btn-primary mt-4" style="background:#ef4444; box-shadow:none; max-width:200px" onclick="disconnectWhatsApp()">
+                                    Desconectar WhatsApp
+                                </button>` : `
+                                <p style="font-size:13px; color:var(--text-light); margin-top:8px">
+                                    Escaneie o QR Code ao lado para vincular o WhatsApp da sua empresa ao ZappTor.
+                                </p>`}
+                        </div>
+                        
+                        ${!data.ready ? `
+                            <div class="admin-whatsapp-qr" id="admin-wpp-qr-container">
+                                <div class="spinner"></div>
+                                <span style="font-size:11px; color:var(--text-light)">Aguardando QR Code...</span>
+                            </div>` : ''}
+                    </div>
+                </div>`;
+            
+            if (!data.ready) {
+                // Força requisição do QR code se desconectado
+                apiFetch('/api/qr');
+                updateAdminQRContent();
+            }
+        } catch (e) {
+            el.innerHTML = `<div style="color:#ef4444;padding:24px">Erro ao obter status da conexão.</div>`;
+        }
+    } else if (state.activeAdminTab === 'users') {
+        // Colaboradores
+        try {
+            const uRes = await apiFetch('/api/admin/users');
+            const users = await uRes.json();
+
+            const tRes = await apiFetch('/api/admin/teams');
+            const teams = await tRes.json();
+
+            const userCount = users.length;
+            const progressWidth = Math.min(100, (userCount / limits.maxUsers) * 100);
+
+            el.innerHTML = `
+                <div class="form-grid">
+                    <div>
+                        <div class="admin-section-title">
+                            Colaboradores Ativos
+                            <span style="font-size:12px; font-weight:normal; color:var(--text-secondary)">
+                                ${userCount} de ${limits.maxUsers === 999999 ? 'Ilimitados' : limits.maxUsers}
+                            </span>
+                        </div>
+                        <div class="limit-bar">
+                            <div class="limit-progress" style="width:${progressWidth}%"></div>
+                        </div>
+                        <div class="user-list mt-4">
+                            ${users.map(u => `
+                                <div class="user-item ${!u.active ? 'user-item-inactive' : ''}">
+                                    <div class="user-item-info">
+                                        <div style="font-weight:700">${u.name}</div>
+                                        <div style="font-size:12px;color:var(--text-secondary)">Cargo: ${u.role === 'admin'?'Admin':'Colaborador'} | Equipe: ${u.teams?.name || 'Nenhuma'}</div>
+                                    </div>
+                                    <span class="badge ${u.active ? 'green' : 'gray'}">${u.active ? 'Ativo' : 'Inativo'}</span>
+                                    <button class="btn-toggle ${u.active ? 'disable' : 'enable'}" onclick="toggleUserStatus('${u.id}', ${!u.active})">
+                                        ${u.active ? 'Bloquear' : 'Ativar'}
+                                    </button>
+                                    <button class="btn-delete" onclick="deleteUser('${u.id}', '${u.name}')">🗑️</button>
+                                </div>`).join('')}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="admin-section-title">Adicionar Novo Colaborador</div>
+                        <form id="add-user-form" onsubmit="handleAddUser(event)" style="display:flex;flex-direction:column;gap:12px">
+                            <div class="form-group">
+                                <label>Nome do Colaborador</label>
+                                <input id="au-name" type="text" placeholder="Ex: Maria Vendas" required />
+                            </div>
+                            <div class="form-group">
+                                <label>Senha de Acesso</label>
+                                <input id="au-pass" type="password" placeholder="Senha inicial" required />
+                            </div>
+                            <div class="form-group">
+                                <label>WhatsApp de Contato</label>
+                                <input id="au-whatsapp" type="text" placeholder="Ex: 5511999999999" />
+                            </div>
+                            <div class="form-group">
+                                <label>Vincular à Equipe</label>
+                                <select id="au-team">
+                                    <option value="">Nenhuma Equipe</option>
+                                    ${teams.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Função</label>
+                                <select id="au-role">
+                                    <option value="user">Colaborador Comum</option>
+                                    <option value="admin">Administrador secundário</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn-primary" style="margin-top:10px">+ Cadastrar</button>
+                        </form>
+                    </div>
+                </div>`;
+        } catch (e) {
+            el.innerHTML = `<div style="color:#ef4444;padding:24px">Erro ao carregar colaboradores.</div>`;
+        }
+    } else if (state.activeAdminTab === 'teams') {
+        // Equipes
+        try {
+            const tRes = await apiFetch('/api/admin/teams');
+            const teams = await tRes.json();
+            
+            const uRes = await apiFetch('/api/admin/users');
+            const users = await uRes.json();
+
+            const isStart = state.company.plan === 'START';
+            const teamCount = teams.length;
+            const maxTeamsText = limits.maxTeams === 999999 ? 'Ilimitadas' : limits.maxTeams;
+
+            el.innerHTML = `
+                <div class="form-grid">
+                    <div>
+                        <div class="admin-section-title">
+                            Minhas Equipes
+                            <span style="font-size:12px; font-weight:normal; color:var(--text-secondary)">
+                                ${teamCount} de ${maxTeamsText}
+                            </span>
+                        </div>
+                        
+                        ${isStart ? `
+                            <div style="background:#fffbeb; border:1px solid #fef3c7; padding:16px; border-radius:8px; color:#b45309; font-size:13px; line-height:1.5;">
+                                ⚠️ <strong>Upgrade Necessário:</strong> O plano <strong>START</strong> não permite criação de equipes. Por favor, solicite a alteração do plano para <strong>TEAM</strong> com a administração do ZappTor.
+                            </div>` : ''}
+
+                        <div class="company-list mt-4">
+                            ${teams.map(t => `
+                                <div class="user-item">
+                                    <div class="user-item-info">
+                                        <div style="font-weight:700">${t.name}</div>
+                                    </div>
+                                    <button class="btn-delete" onclick="deleteTeam('${t.id}')">🗑️</button>
+                                </div>`).join('')}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="admin-section-title">Criar Equipe</div>
+                        <form id="add-team-form" onsubmit="handleCreateTeam(event)" style="display:flex;flex-direction:column;gap:12px">
+                            <div class="form-group">
+                                <label>Nome da Equipe</label>
+                                <input id="at-name" type="text" placeholder="Ex: Suporte Técnico" ${isStart ? 'disabled' : ''} required />
+                            </div>
+                            <button type="submit" class="btn-primary" style="margin-top:10px" ${isStart ? 'disabled' : ''}>+ Criar Equipe</button>
+                        </form>
+
+                        <div class="admin-section-title mt-4">Atribuir Colaborador à Equipe</div>
+                        <form id="assign-team-form" onsubmit="handleAssignTeam(event)" style="display:flex;flex-direction:column;gap:12px">
+                            <div class="form-group">
+                                <label>Colaborador</label>
+                                <select id="as-user" required>
+                                    ${users.map(u => `<option value="${u.id}">${u.name} (Atual: ${u.teams?.name || 'Sem equipe'})</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Nova Equipe</label>
+                                <select id="as-team" required>
+                                    <option value="">Nenhuma (Remover da equipe)</option>
+                                    ${teams.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}
+                                </select>
+                            </div>
+                            <button type="submit" class="btn-primary" style="margin-top:10px">Salvar Vínculo</button>
+                        </form>
+                    </div>
+                </div>`;
+        } catch (e) {
+            el.innerHTML = `<div style="color:#ef4444;padding:24px">Erro ao carregar equipes.</div>`;
+        }
+    } else if (state.activeAdminTab === 'bills') {
+        // Faturas da Empresa
+        try {
+            const res = await apiFetch('/api/admin/installments');
+            const bills = await res.json();
+
+            el.innerHTML = `
+                <div>
+                    <div class="admin-section-title">Histórico de Faturas / Mensalidades</div>
+                    <div class="company-list">
+                        ${bills.length === 0 ? `
+                            <div style="color:var(--text-light);font-size:14px;text-align:center;padding:32px">Nenhuma fatura gerada para sua empresa.</div>` : 
+                            bills.map(b => {
+                                let statusClass = 'gray';
+                                if (b.status === 'paga') statusClass = 'green';
+                                if (b.status === 'pendente') statusClass = 'yellow';
+                                if (b.status === 'atrasada') statusClass = 'red';
+                                if (b.status === 'agendada') statusClass = 'blue';
+
+                                return `
+                                    <div class="user-item">
+                                        <div class="user-item-info">
+                                            <div style="font-weight:700">Plano ${state.company.plan}</div>
+                                            <div style="font-size:12px;color:var(--text-secondary)">Vence em: ${new Date(b.due_date).toLocaleDateString()}</div>
+                                        </div>
+                                        <div style="font-size:14px; font-weight:800; color:var(--primary-dark); margin-right:16px">R$ ${parseFloat(b.amount).toFixed(2)}</div>
+                                        <span class="badge ${statusClass}">${b.status}</span>
+                                    </div>`;
+                            }).join('')}
+                    </div>
+                </div>`;
+        } catch (e) {
+            el.innerHTML = `<div style="color:#ef4444;padding:24px">Erro ao carregar mensalidades.</div>`;
+        }
+    } else if (state.activeAdminTab === 'config') {
+        // Configurações
+        const sig = state.company.signature_type || 'none';
+        
+        el.innerHTML = `
+            <div>
+                <div class="admin-section-title">Assinatura de Mensagem do WhatsApp</div>
+                <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                    Escolha como o ZappTor irá assinar as mensagens enviadas pelos colaboradores no WhatsApp.
+                </p>
+                <form id="signature-form" onsubmit="handleSaveSignature(event)" style="display:flex;flex-direction:column;gap:12px">
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                        <label style="display:flex;align-items:center;gap:8px;font-size:14px;">
+                            <input type="radio" name="sig-type" value="none" ${sig === 'none'?'checked':''} />
+                            Sem assinatura (Envia apenas o texto cru)
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;font-size:14px;">
+                            <input type="radio" name="sig-type" value="name" ${sig === 'name'?'checked':''} />
+                            Enviar apenas Nome (ex: *Maria Vendas*)
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;font-size:14px;">
+                            <input type="radio" name="sig-type" value="name_team" ${sig === 'name_team'?'checked':''} />
+                            Enviar Nome e Equipe (ex: *Maria Vendas* \\n _Suporte_)
+                        </label>
+                    </div>
+                    <button type="submit" class="btn-primary mt-4" style="max-width:200px">Salvar Assinatura</button>
+                </form>
+            </div>`;
+    }
+}
+
+function updateAdminQRContent(status = 'waiting') {
+    const container = document.getElementById('admin-wpp-qr-container');
+    if (!container) return;
+
+    if (state.qrCodeImg) {
+        container.innerHTML = `
+            <img src="${state.qrCodeImg}" style="width:200px; height:200px; object-fit:contain" />
+            <span style="font-size:12px; font-weight:700; color:var(--primary-dark)">Escaneie no celular</span>`;
+    } else if (status.startsWith('loading')) {
+        container.innerHTML = `
+            <div class="spinner"></div>
+            <span style="font-size:11px; color:var(--text-light)">${status}</span>`;
+    } else {
+        container.innerHTML = `
+            <div class="spinner"></div>
+            <span style="font-size:11px; color:var(--text-light)">Aguardando QR Code...</span>`;
+    }
+}
+
+async function disconnectWhatsApp() {
+    if (!confirm('Deseja realmente desconectar o WhatsApp da sua empresa?')) return;
+    try {
+        await apiFetch('/api/admin/disconnect', { method: 'POST' });
+        showNotif('Desconectado', 'Sessão do WhatsApp destruída.');
+        renderAdminTabContent();
+    } catch (e) {}
+}
+
+async function handleAddUser(e) {
+    e.preventDefault();
+    const payload = {
+        name: document.getElementById('au-name').value.trim(),
+        password: document.getElementById('au-pass').value,
+        whatsapp_contact: document.getElementById('au-whatsapp').value.trim(),
+        team_id: document.getElementById('au-team').value || null,
+        role: document.getElementById('au-role').value
+    };
+
+    try {
+        const res = await apiFetch('/api/admin/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
         });
         const data = await res.json();
-        if (data.error) { errEl.textContent = data.error; errEl.classList.add('show'); return; }
-        nameEl.value = '';
-        showNotif('Usuário adicionado', `${name} pode agora fazer login.`);
-        renderAdminPanel();
-    } catch (e) {
-        errEl.textContent = 'Erro ao adicionar.'; errEl.classList.add('show');
+        
+        if (res.status === 200) {
+            showNotif('Sucesso', 'Colaborador adicionado.');
+            renderAdminTabContent();
+        } else {
+            showNotif('Erro', data.error || 'Erro na requisição.', true);
+        }
+    } catch (err) {
+        showNotif('Erro', 'Não foi possível cadastrar usuário.', true);
     }
 }
 
-async function toggleUser(id, active) {
-    await fetch(`${BACKEND_URL}/api/admin/users/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'x-admin-key': state.adminKey },
-        body: JSON.stringify({ active }),
-    });
-    renderAdminPanel();
+async function toggleUserStatus(id, active) {
+    try {
+        await apiFetch(`/api/admin/users/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ active })
+        });
+        showNotif('Sucesso', 'Status do colaborador atualizado.');
+        renderAdminTabContent();
+    } catch (e) {}
 }
 
 async function deleteUser(id, name) {
-    if (!confirm(`Excluir o usuário "${name}"? Esta ação não pode ser desfeita.`)) return;
-    await fetch(`${BACKEND_URL}/api/admin/users/${id}`, {
-        method: 'DELETE',
-        headers: { 'x-admin-key': state.adminKey },
-    });
-    showNotif('Usuário removido', `${name} foi removido do sistema.`);
-    renderAdminPanel();
+    if (!confirm(`Deseja excluir permanentemente o acesso de "${name}"?`)) return;
+    try {
+        await apiFetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+        showNotif('Sucesso', 'Colaborador removido.');
+        renderAdminTabContent();
+    } catch (e) {}
+}
+
+async function handleCreateTeam(e) {
+    e.preventDefault();
+    const name = document.getElementById('at-name').value.trim();
+    
+    try {
+        const res = await apiFetch('/api/admin/teams', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        
+        if (res.status === 200) {
+            showNotif('Sucesso', 'Equipe criada.');
+            renderAdminTabContent();
+        } else {
+            showNotif('Erro', data.error || 'Erro ao criar equipe.', true);
+        }
+    } catch (err) {
+        showNotif('Erro', 'Falha na conexão.', true);
+    }
+}
+
+async function deleteTeam(id) {
+    if (!confirm('Deseja excluir esta equipe? Os colaboradores vinculados ficarão sem equipe.')) return;
+    try {
+        await apiFetch(`/api/admin/teams/${id}`, { method: 'DELETE' });
+        showNotif('Sucesso', 'Equipe removida.');
+        renderAdminTabContent();
+    } catch (e) {}
+}
+
+async function handleAssignTeam(e) {
+    e.preventDefault();
+    const userId = document.getElementById('as-user').value;
+    const teamId = document.getElementById('as-team').value || null;
+
+    try {
+        await apiFetch(`/api/admin/users/${userId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ team_id: teamId })
+        });
+        showNotif('Sucesso', 'Colaborador vinculado à equipe.');
+        renderAdminTabContent();
+    } catch (e) {}
+}
+
+async function handleSaveSignature(e) {
+    e.preventDefault();
+    const type = document.querySelector('input[name="sig-type"]:checked').value;
+
+    try {
+        const res = await apiFetch('/api/admin/companies/signature', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ signature_type: type })
+        });
+        const data = await res.json();
+        
+        if (res.status === 200) {
+            state.company.signature_type = type;
+            localStorage.setItem('zaptor_company', JSON.stringify(state.company));
+            showNotif('Sucesso', 'Configuração de assinatura salva.');
+        } else {
+            showNotif('Erro', data.error || 'Erro ao salvar.', true);
+        }
+    } catch (err) {}
 }
 
 // ── Foco na aba: limpar badge de mensagens ────────────────────
 document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) { state.unreadCount = 0; document.title = state.unreadOriginalTitle; }
+    if (!document.hidden) {
+        state.unreadCount = 0;
+        document.title = state.unreadOriginalTitle;
+    }
 });
 </script>
 </body>
