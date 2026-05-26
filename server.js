@@ -772,11 +772,11 @@ app.patch('/api/admin/users/:id', requireAdmin, async (req, res) => {
             .update(updateData)
             .eq('id', req.params.id)
             .eq('company_id', req.companyId)
-            .select()
-            .single();
+            .select();
 
         if (error) return res.status(500).json({ error: error.message });
-        res.json(data);
+        if (!data || data.length === 0) return res.status(404).json({ error: 'Usuário não encontrado ou sem permissão para atualizar.' });
+        res.json(data[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -903,11 +903,11 @@ app.post('/api/admin/companies/signature', requireAdmin, async (req, res) => {
             .from('companies')
             .update({ signature_type })
             .eq('id', req.companyId)
-            .select()
-            .single();
+            .select();
 
         if (error) return res.status(500).json({ error: error.message });
-        res.json(data);
+        if (!data || data.length === 0) return res.status(404).json({ error: 'Empresa não encontrada ou sem permissão para atualizar.' });
+        res.json(data[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -1057,10 +1057,10 @@ app.patch('/api/root/companies/:id', requireRoot, async (req, res) => {
             .from('companies')
             .update(updateData)
             .eq('id', req.params.id)
-            .select()
-            .single();
+            .select();
 
         if (error) return res.status(500).json({ error: error.message });
+        if (!data || data.length === 0) return res.status(404).json({ error: 'Empresa não encontrada ou sem permissão para atualizar. Verifique se a SUPABASE_SERVICE_KEY está correta.' });
         
         // Se a empresa foi desativada, desconecta seu whatsapp
         if (active === false && companyClients.has(req.params.id)) {
@@ -1071,7 +1071,7 @@ app.patch('/api/root/companies/:id', requireRoot, async (req, res) => {
             companyClients.delete(req.params.id);
         }
 
-        res.json(data);
+        res.json(data[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -1163,11 +1163,11 @@ app.patch('/api/root/installments/:id', requireRoot, async (req, res) => {
             .from('installments')
             .update(updateData)
             .eq('id', req.params.id)
-            .select()
-            .single();
+            .select();
 
         if (error) return res.status(500).json({ error: error.message });
-        res.json(data);
+        if (!data || data.length === 0) return res.status(404).json({ error: 'Fatura não encontrada ou sem permissão para atualizar.' });
+        res.json(data[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

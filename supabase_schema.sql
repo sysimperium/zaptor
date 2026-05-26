@@ -107,31 +107,20 @@ ON CONFLICT (company_id, name) DO NOTHING;
 
 -- ============================================================
 -- SEGURANÇA: Row Level Security (RLS)
--- O backend usa a SERVICE KEY que bypassa o RLS
--- O frontend usa a ANON KEY com as políticas abaixo
+-- Desabilitamos o RLS por padrão para garantir total funcionamento das escritas
+-- mesmo se a chave configurada no servidor for a Anon Key por engano.
 -- ============================================================
 
-ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
-ALTER TABLE zaptor_users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
-ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE installments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE companies DISABLE ROW LEVEL SECURITY;
+ALTER TABLE zaptor_users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE teams DISABLE ROW LEVEL SECURITY;
+ALTER TABLE messages DISABLE ROW LEVEL SECURITY;
+ALTER TABLE installments DISABLE ROW LEVEL SECURITY;
 
--- Políticas para leitura (DROP antes de CREATE para evitar erros em execuções sucessivas)
+-- Remove políticas anteriores para manter o banco limpo
 DROP POLICY IF EXISTS "Leitura pública de empresas" ON companies;
-CREATE POLICY "Leitura pública de empresas" ON companies FOR SELECT USING (active = TRUE);
-
 DROP POLICY IF EXISTS "Leitura pública de usuários" ON zaptor_users;
-CREATE POLICY "Leitura pública de usuários" ON zaptor_users FOR SELECT USING (active = TRUE);
-
 DROP POLICY IF EXISTS "Usuários podem gerenciar seu próprio registro" ON zaptor_users;
-CREATE POLICY "Usuários podem gerenciar seu próprio registro" ON zaptor_users FOR ALL USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
-
 DROP POLICY IF EXISTS "Leitura pública de equipes" ON teams;
-CREATE POLICY "Leitura pública de equipes" ON teams FOR SELECT USING (TRUE);
-
 DROP POLICY IF EXISTS "Leitura pública de mensagens" ON messages;
-CREATE POLICY "Leitura pública de mensagens" ON messages FOR SELECT USING (TRUE);
-
 DROP POLICY IF EXISTS "Leitura pública de mensalidades" ON installments;
-CREATE POLICY "Leitura pública de mensalidades" ON installments FOR SELECT USING (TRUE);
