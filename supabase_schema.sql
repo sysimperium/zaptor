@@ -107,20 +107,49 @@ ON CONFLICT (company_id, name) DO NOTHING;
 
 -- ============================================================
 -- SEGURANÇA: Row Level Security (RLS)
--- Desabilitamos o RLS por padrão para garantir total funcionamento das escritas
--- mesmo se a chave configurada no servidor for a Anon Key por engano.
+-- O RLS fica ATIVO, mas com políticas permissivas para acesso via API.
+-- A segurança real é garantida pelo backend (Railway/server.js) que valida
+-- requireRoot, requireAdmin etc antes de qualquer acesso ao banco.
+-- O frontend nunca acessa o Supabase diretamente — apenas via backend.
 -- ============================================================
 
-ALTER TABLE companies DISABLE ROW LEVEL SECURITY;
-ALTER TABLE zaptor_users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE teams DISABLE ROW LEVEL SECURITY;
-ALTER TABLE messages DISABLE ROW LEVEL SECURITY;
-ALTER TABLE installments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE zaptor_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE installments ENABLE ROW LEVEL SECURITY;
 
--- Remove políticas anteriores para manter o banco limpo
+-- Remove políticas antigas para evitar conflitos
 DROP POLICY IF EXISTS "Leitura pública de empresas" ON companies;
 DROP POLICY IF EXISTS "Leitura pública de usuários" ON zaptor_users;
 DROP POLICY IF EXISTS "Usuários podem gerenciar seu próprio registro" ON zaptor_users;
 DROP POLICY IF EXISTS "Leitura pública de equipes" ON teams;
 DROP POLICY IF EXISTS "Leitura pública de mensagens" ON messages;
 DROP POLICY IF EXISTS "Leitura pública de mensalidades" ON installments;
+DROP POLICY IF EXISTS "Acesso total via API" ON companies;
+DROP POLICY IF EXISTS "Acesso total via API" ON zaptor_users;
+DROP POLICY IF EXISTS "Acesso total via API" ON teams;
+DROP POLICY IF EXISTS "Acesso total via API" ON messages;
+DROP POLICY IF EXISTS "Acesso total via API" ON installments;
+
+-- Políticas permissivas: permitem SELECT, INSERT, UPDATE e DELETE via API Key
+CREATE POLICY "Acesso total via API" ON companies
+  FOR ALL TO anon, authenticated
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY "Acesso total via API" ON zaptor_users
+  FOR ALL TO anon, authenticated
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY "Acesso total via API" ON teams
+  FOR ALL TO anon, authenticated
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY "Acesso total via API" ON messages
+  FOR ALL TO anon, authenticated
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY "Acesso total via API" ON installments
+  FOR ALL TO anon, authenticated
+  USING (true) WITH CHECK (true);
+
