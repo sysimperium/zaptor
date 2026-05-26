@@ -1481,8 +1481,8 @@ io.on('connection', (socket) => {
                 } catch (e) {}
             }
         } catch (error) {
-            console.error('[Socket Send Msg] Erro:', error.message);
-            socket.emit('message_error', { error: 'Falha ao enviar mensagem pelo WhatsApp.' });
+            console.error('[Socket Send Msg] Erro:', error);
+            socket.emit('message_error', { error: `Falha ao enviar mensagem pelo WhatsApp: ${error.message}` });
         }
     });
 
