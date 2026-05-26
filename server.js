@@ -32,7 +32,11 @@ const PLAN_LIMITS = {
 let supabase = null;
 if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
     const cleanUrl = SUPABASE_URL.trim().replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
-    supabase = createClient(cleanUrl, SUPABASE_SERVICE_KEY);
+    supabase = createClient(cleanUrl, SUPABASE_SERVICE_KEY, {
+        auth: {
+            persistSession: false
+        }
+    });
     console.log('[Supabase] Conectado com URL:', cleanUrl);
 } else {
     console.warn('[Supabase] AVISO: Variáveis de ambiente não configuradas. Rodando sem persistência.');

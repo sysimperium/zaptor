@@ -124,6 +124,9 @@ CREATE POLICY "Leitura pública de empresas" ON companies FOR SELECT USING (acti
 DROP POLICY IF EXISTS "Leitura pública de usuários" ON zaptor_users;
 CREATE POLICY "Leitura pública de usuários" ON zaptor_users FOR SELECT USING (active = TRUE);
 
+DROP POLICY IF EXISTS "Usuários podem gerenciar seu próprio registro" ON zaptor_users;
+CREATE POLICY "Usuários podem gerenciar seu próprio registro" ON zaptor_users FOR ALL USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+
 DROP POLICY IF EXISTS "Leitura pública de equipes" ON teams;
 CREATE POLICY "Leitura pública de equipes" ON teams FOR SELECT USING (TRUE);
 
