@@ -74,9 +74,14 @@ async function initCompanyClient(company, ioInstance) {
 
     const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-${company.id}`);
     
+    const isLocal = process.platform === 'win32' || !process.env.PUPPETEER_EXECUTABLE_PATH;
+    console.log(`[WhatsApp - ${company.slug}] Rodando em ambiente local: ${isLocal} (headless: ${!isLocal})`);
+
     const client = new Client({
         authStrategy: new LocalAuth({ dataPath: sessionPath }),
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         puppeteer: {
+            headless: isLocal ? false : true,
             executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
             handleSIGTERM: false,
             args: [
