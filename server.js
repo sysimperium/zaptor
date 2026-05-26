@@ -51,7 +51,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-key, x-root-key, x-company-id');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-key, x-root-key, x-company-id, x-user-id, x-user-name');
     if (req.method === 'OPTIONS') return res.sendStatus(200);
     next();
 });
@@ -299,12 +299,40 @@ const requireAdmin = async (req, res, next) => {
 };
 
 // Requer autenticação de Root global do Sistema
-const requireRoot = (req, res, next) => {
-    const key = req.headers['x-root-key'];
-    if (key !== ROOT_KEY) {
-        return res.status(401).json({ error: 'Chave de root inválida.' });
+const requireRoot = async (req, res, next) => {
+    try {
+        const key = req.headers['x-root-key'];
+        const userId = req.headers['x-user-id'];
+
+        // 1. Validar via chave de root clássica
+        if (key && key === ROOT_KEY) {
+            return next();
+        }
+
+        // 2. Validar via UUID do usuário (Root logado pelo Supabase)
+        if (userId) {
+            if (!supabase) {
+                if (userId === 'root-id') {
+                    return next();
+                }
+            } else {
+                const { data: user, error } = await supabase
+                    .from('zaptor_users')
+                    .select('role, active')
+                    .eq('id', userId)
+                    .single();
+
+                if (!error && user && user.role === 'root' && user.active) {
+                    return next();
+                }
+            }
+        }
+
+        return res.status(401).json({ error: 'Chave de root inválida ou acesso Root não autorizado.' });
+    } catch (err) {
+        console.error('[requireRoot] Erro no middleware de autenticação root:', err);
+        return res.status(500).json({ error: 'Erro interno na validação de Root.' });
     }
-    next();
 };
 
 // ── API: Status Geral e Conexão ────────────────────────────────
