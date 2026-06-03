@@ -2530,10 +2530,17 @@ function updateAdminQRContent(status = 'waiting') {
 async function disconnectWhatsApp() {
     if (!(await showConfirm('Confirmar Desconexão', 'Deseja realmente desconectar o WhatsApp da sua empresa?'))) return;
     try {
-        await apiFetch('/api/admin/disconnect', { method: 'POST' });
-        showNotif('Desconectado', 'Sessão do WhatsApp destruída.');
+        const res = await apiFetch('/api/admin/disconnect', { method: 'POST' });
+        if (res.ok) {
+            showNotif('Desconectado', 'Sessão do WhatsApp destruída.');
+        } else {
+            const data = await res.json();
+            showNotif('Erro ao desconectar', data.error || 'Falha na requisição.', true);
+        }
         renderAdminTabContent();
-    } catch (e) {}
+    } catch (e) {
+        showNotif('Erro', 'Falha ao conectar no servidor.', true);
+    }
 }
 
 async function handleAddUser(e) {

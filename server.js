@@ -90,6 +90,25 @@ function getSessionPath(companyId) {
     return path.join(__dirname, '.wwebjs_auth', `session-${companyId}`);
 }
 
+async function deleteSessionDirectory(sessionPath, retries = 5, delay = 500) {
+    if (!fs.existsSync(sessionPath)) return;
+    for (let i = 0; i < retries; i++) {
+        try {
+            fs.rmSync(sessionPath, { recursive: true, force: true });
+            console.log(`[Session Clean] Pasta deletada com sucesso: ${sessionPath}`);
+            return;
+        } catch (err) {
+            console.warn(`[Session Clean] Tentativa ${i + 1} falhou para deletar ${sessionPath}: ${err.message}`);
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                console.error(`[Session Clean] Não foi possível deletar a pasta ${sessionPath} após ${retries} tentativas.`);
+            }
+        }
+    }
+}
+
+
 function matchBrazilianNumber(num1, num2) {
     let n1 = num1.replace(/\D/g, '');
     let n2 = num2.replace(/\D/g, '');
@@ -209,9 +228,7 @@ async function initCompanyClient(company, ioInstance) {
                     } catch (e) {}
                     
                     // Limpar a pasta de autenticação para forçar um novo escaneamento
-                    try {
-                        fs.rmSync(sessionPath, { recursive: true, force: true });
-                    } catch (e) {}
+                    await deleteSessionDirectory(sessionPath);
                     
                     companyClients.delete(company.id);
                     return;
@@ -234,7 +251,7 @@ async function initCompanyClient(company, ioInstance) {
         companyClients.delete(company.id);
         try { await client.destroy(); } catch (e) {}
         // Limpa a sessão para forçar escaneamento de novo QR
-        try { fs.rmSync(sessionPath, { recursive: true, force: true }); } catch (e) {}
+        await deleteSessionDirectory(sessionPath);
         console.log(`[WhatsApp - ${company.slug}] Cliente removido após auth_failure. Pronto para novo QR.`);
     });
 
@@ -1055,18 +1072,38 @@ app.post('/api/admin/companies/signature', requireAdmin, async (req, res) => {
 
 // Desconectar / Deslogar WhatsApp da Empresa
 app.post('/api/admin/disconnect', requireAdmin, async (req, res) => {
+    console.log(`[WhatsApp - Disconnect] Iniciando desconexão para empresa: ${req.companyId}`);
     const clientState = companyClients.get(req.companyId);
+    
     if (clientState) {
-        try { await clientState.client.logout(); } catch (e) {}
-        try { await clientState.client.destroy(); } catch (e) {}
-        
-        const sessionPath = getSessionPath(req.companyId);
+        // Logout com timeout para evitar travamentos
         try {
-            fs.rmSync(sessionPath, { recursive: true, force: true });
-        } catch (e) {}
+            await Promise.race([
+                clientState.client.logout(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout no logout')), 4000))
+            ]);
+            console.log(`[WhatsApp - Disconnect] Logout executado.`);
+        } catch (e) {
+            console.log(`[WhatsApp - Disconnect] Logout falhou ou atingiu timeout: ${e.message}`);
+        }
+        
+        // Destruir cliente para fechar o Puppeteer e liberar os arquivos
+        try {
+            await clientState.client.destroy();
+            console.log(`[WhatsApp - Disconnect] Cliente destruído.`);
+        } catch (e) {
+            console.log(`[WhatsApp - Disconnect] Erro ao destruir cliente: ${e.message}`);
+        }
         
         companyClients.delete(req.companyId);
+    } else {
+        console.log(`[WhatsApp - Disconnect] Nenhum cliente ativo em memória. Prosseguindo com a remoção dos arquivos de sessão.`);
     }
+    
+    // Sempre tenta limpar a pasta física de sessão, mesmo se o cliente não estava ativo em memória
+    const sessionPath = getSessionPath(req.companyId);
+    await deleteSessionDirectory(sessionPath);
+    
     io.to(req.companyId).emit('whatsapp_status', { ready: false });
     res.json({ success: true });
 });
