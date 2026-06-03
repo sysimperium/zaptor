@@ -2271,7 +2271,10 @@ async function renderAdminTabContent() {
                                 </button>` : `
                                 <p style="font-size:13px; color:var(--text-light); margin-top:8px">
                                     Escaneie o QR Code ao lado para vincular o WhatsApp da sua empresa ao ZappTor.
-                                </p>`}
+                                </p>
+                                <button class="btn-primary mt-4" style="background:#dc2626; box-shadow:none; max-width:230px; font-size:13px; margin-top:12px;" onclick="disconnectWhatsApp()">
+                                    Limpar Sessão / Tentar Novamente
+                                </button>`}
                         </div>
                         
                         ${!data.ready ? `
