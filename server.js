@@ -206,11 +206,33 @@ async function initCompanyClient(company, ioInstance) {
     });
 
     client.on('ready', async () => {
-        const connectedNumber = client.info.wid.user;
+        let connectedNumber = null;
+        try {
+            if (client.info && client.info.wid && client.info.wid.user) {
+                connectedNumber = client.info.wid.user;
+            } else if (client.pupPage) {
+                connectedNumber = await client.pupPage.evaluate(() => {
+                    try {
+                        return window.require('WAWebConnModel').Conn.wid.user;
+                    } catch (err) {
+                        try {
+                            const prefs = window.require('WAWebUserPrefsMeUser');
+                            const userWid = prefs.getMaybeMePnUser() || prefs.getMaybeMeLidUser();
+                            return userWid ? userWid.user : null;
+                        } catch (err2) {
+                            return null;
+                        }
+                    }
+                });
+            }
+        } catch (e) {
+            console.error(`[WhatsApp - ${company.slug}] Erro ao extrair número conectado:`, e.message);
+        }
+
         console.log(`[WhatsApp - ${company.slug}] Pronto! Conectado no número: ${connectedNumber}`);
 
-        // Validação do número autorizado se definido na empresa
-        if (company.phone_number && company.phone_number.trim()) {
+        // Validação do número autorizado se definido na empresa e número detectado
+        if (company.phone_number && company.phone_number.trim() && connectedNumber) {
             const allowed = company.phone_number.split(',').map(n => n.replace(/\D/g, '').trim()).filter(Boolean);
             const cleanConnected = connectedNumber.replace(/\D/g, '').trim();
 
