@@ -156,11 +156,16 @@ async function initCompanyClient(company, ioInstance) {
 
     const client = new Client({
         authStrategy: new LocalAuth({ dataPath: sessionPath }),
+        webVersionCache: {
+            type: 'remote',
+            remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/{version}.html',
+        },
         userAgent: isLocal ? false : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
         puppeteer: {
             headless: isLocal ? false : true,
             executablePath: executablePath,
             handleSIGTERM: false,
+            protocolTimeout: 120000, // Evita timeout ao avaliar funções internas do WhatsApp Web
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -695,10 +700,41 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+// Funções auxiliares para contornar falhas de sincronização lazy-load do WhatsApp Web
+async function getChatsWithRetry(client, retries = 3, delay = 2000) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await client.getChats();
+        } catch (err) {
+            console.warn(`[getChats] Tentativa ${i + 1} falhou: ${err.message}`);
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                throw err;
+            }
+        }
+    }
+}
+
+async function getChatByIdWithRetry(client, chatId, retries = 3, delay = 1500) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await client.getChatById(chatId);
+        } catch (err) {
+            console.warn(`[getChatById] Tentativa ${i + 1} falhou para ${chatId}: ${err.message}`);
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                throw err;
+            }
+        }
+    }
+}
+
 // ── API: WhatsApp (Conversas e Ações) ─────────────────────────
 app.get('/api/chats', requireCompanyClient, async (req, res) => {
     try {
-        const chats = await req.companyClient.getChats();
+        const chats = await getChatsWithRetry(req.companyClient);
         res.json(chats.map(c => ({
             id: c.id._serialized,
             name: c.name || c.id.user || 'Desconhecido',
@@ -758,7 +794,7 @@ app.get('/api/chats/:chatId/messages', requireCompanyClient, async (req, res) =>
     }
 
     try {
-        const chat = await req.companyClient.getChatById(req.params.chatId);
+        const chat = await getChatByIdWithRetry(req.companyClient, req.params.chatId);
         const messages = await chat.fetchMessages({ limit: 50 });
         
         const mapped = await Promise.all(messages.map(async msg => {
@@ -808,7 +844,7 @@ app.get('/api/chats/:chatId/messages', requireCompanyClient, async (req, res) =>
 
 app.post('/api/chats/:chatId/read', requireCompanyClient, async (req, res) => {
     try {
-        const chat = await req.companyClient.getChatById(req.params.chatId);
+        const chat = await getChatByIdWithRetry(req.companyClient, req.params.chatId);
         await chat.sendSeen();
         io.to(req.companyId).emit('chat_read', { chatId: req.params.chatId });
         res.json({ success: true });
@@ -819,7 +855,7 @@ app.post('/api/chats/:chatId/read', requireCompanyClient, async (req, res) => {
 
 app.post('/api/chats/:chatId/unread', requireCompanyClient, async (req, res) => {
     try {
-        const chat = await req.companyClient.getChatById(req.params.chatId);
+        const chat = await getChatByIdWithRetry(req.companyClient, req.params.chatId);
         await chat.markUnread();
         io.to(req.companyId).emit('chat_unread', { chatId: req.params.chatId });
         res.json({ success: true });
@@ -1125,6 +1161,17 @@ app.post('/api/admin/disconnect', requireAdmin, async (req, res) => {
     // Sempre tenta limpar a pasta física de sessão, mesmo se o cliente não estava ativo em memória
     const sessionPath = getSessionPath(req.companyId);
     await deleteSessionDirectory(sessionPath);
+    
+    // Limpar cache local de versão do whatsapp-web.js caso exista
+    const cachePath = path.join(__dirname, '.wwebjs_cache');
+    if (fs.existsSync(cachePath)) {
+        try {
+            fs.rmSync(cachePath, { recursive: true, force: true });
+            console.log(`[Session Clean] Pasta .wwebjs_cache deletada com sucesso.`);
+        } catch (e) {
+            console.warn(`[Session Clean] Erro ao deletar .wwebjs_cache: ${e.message}`);
+        }
+    }
     
     io.to(req.companyId).emit('whatsapp_status', { ready: false });
     res.json({ success: true });

@@ -1185,23 +1185,47 @@ async function fetchChats() {
 
     try {
         const res = await apiFetch('/api/chats');
-        state.chats = await res.json();
-        renderChatList();
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || `Erro HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (Array.isArray(data)) {
+            state.chats = data;
+            renderChatList();
+        } else {
+            throw new Error(data.error || 'Resposta inválida do servidor');
+        }
     } catch (e) {
         console.error('[Error fetching chats]', e);
+        document.getElementById('chat-list').innerHTML = `
+            <div style="color:#ef4444;font-size:14px;text-align:center;padding:32px;">
+                Erro ao carregar conversas:<br>${e.message}
+            </div>`;
     }
 }
 
 async function fetchInternalUsers() {
     try {
         const res = await apiFetch('/api/admin/users');
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || `Erro HTTP ${res.status}`);
+        }
         const users = await res.json();
-        
-        // Filtra para remover a si mesmo da lista de chat interno
-        state.internalUsers = users.filter(u => u.id !== state.user.id && u.active);
-        renderInternalUserList();
+        if (Array.isArray(users)) {
+            // Filtra para remover a si mesmo da lista de chat interno
+            state.internalUsers = users.filter(u => u.id !== state.user.id && u.active);
+            renderInternalUserList();
+        } else {
+            throw new Error('Resposta inválida do servidor');
+        }
     } catch (e) {
-        console.error(e);
+        console.error('[Error fetching internal users]', e);
+        document.getElementById('chat-list').innerHTML = `
+            <div style="color:#ef4444;font-size:14px;text-align:center;padding:32px;">
+                Erro ao carregar colegas:<br>${e.message}
+            </div>`;
     }
 }
 
@@ -1308,26 +1332,34 @@ async function loadMessages() {
         if (state.activeChat.isInternal) {
             // No caso de chat interno, as mensagens são carregadas do banco de dados (tabela messages)
             // filtrando por is_internal = true e sender/receiver correspondente
-            const res = await apiFetch(`/api/chats`); // Dummy load, na verdade puxamos via Endpoint customizado ou similar
-            // Para simplicidade e eficácia, vamos buscar as mensagens normais arquivadas no Supabase
-            // Como usamos a ANON KEY do supabase no frontend para RLS ou criamos rota de messages no backend:
-            // Vamos criar uma rota de mensagens de chat interno simples
-            const historyRes = await apiFetch(`/api/admin/users`); // endpoint mock ou ler do banco
-            
-            // Vamos criar a simulação de mensagens da equipe no frontend ou requisições ao Supabase.
-            // Para garantir robustez técnica, faremos chamada ao endpoint de histórico de mensagens internas:
             const internalMsgRes = await apiFetch(`/api/chats/${encodeURIComponent(state.activeChat.id)}/messages?isInternal=true`);
+            if (!internalMsgRes.ok) {
+                const data = await internalMsgRes.json().catch(() => ({}));
+                throw new Error(data.error || `Erro HTTP ${internalMsgRes.status}`);
+            }
             const msgs = await internalMsgRes.json();
-            
-            state.messages = msgs;
+            if (Array.isArray(msgs)) {
+                state.messages = msgs;
+            } else {
+                throw new Error('Resposta inválida do servidor');
+            }
         } else {
             const res = await apiFetch(`/api/chats/${encodeURIComponent(state.activeChat.id)}/messages`);
-            state.messages = await res.json();
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || `Erro HTTP ${res.status}`);
+            }
+            const msgs = await res.json();
+            if (Array.isArray(msgs)) {
+                state.messages = msgs;
+            } else {
+                throw new Error('Resposta inválida do servidor');
+            }
         }
         
         renderMessages();
     } catch (e) {
-        container.innerHTML = `<div style="color:#ef4444;font-size:14px;text-align:center;padding:32px">Erro ao carregar mensagens. Tente novamente.</div>`;
+        container.innerHTML = `<div style="color:#ef4444;font-size:14px;text-align:center;padding:32px">Erro ao carregar mensagens:<br>${e.message}</div>`;
     }
 }
 
@@ -2499,6 +2531,14 @@ async function renderAdminTabContent() {
                     </div>
                     <button type="submit" class="btn-primary mt-4" style="max-width:200px">Salvar Assinatura</button>
                 </form>
+                <hr style="margin:28px 0; border:0; border-top:1px solid var(--border);" />
+                <div class="admin-section-title" style="color:#ef4444">Manutenção da Sessão do WhatsApp</div>
+                <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                    Se a conexão estiver instável, presa na sincronização no celular ou se as conversas não estiverem carregando no PC, clique no botão abaixo para forçar a desconexão, limpar as pastas temporárias de cache e reiniciar o WhatsApp.
+                </p>
+                <button class="btn-primary" style="background:#dc2626; box-shadow:none; max-width:320px; font-weight:700;" onclick="disconnectWhatsApp()">
+                    🧹 Limpar Sessão e Reiniciar WhatsApp
+                </button>
             </div>`;
     }
 }
@@ -2531,7 +2571,7 @@ function updateAdminQRContent(status = 'waiting') {
 }
 
 async function disconnectWhatsApp() {
-    if (!(await showConfirm('Confirmar Desconexão', 'Deseja realmente desconectar o WhatsApp da sua empresa?'))) return;
+    if (!(await showConfirm('Confirmar Limpeza de Sessão', 'Deseja realmente limpar a sessão e reiniciar o WhatsApp? Isso fechará a conexão atual, apagará todo o cache local e você precisará escanear o QR Code novamente.'))) return;
     try {
         const res = await apiFetch('/api/admin/disconnect', { method: 'POST' });
         if (res.ok) {
