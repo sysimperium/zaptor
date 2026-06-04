@@ -288,6 +288,7 @@ async function initCompanyClient(company, ioInstance) {
         ioInstance.to(company.id).emit('whatsapp_status', { ready: false, reason });
         companyClients.delete(company.id);
         try { await client.destroy(); } catch (e) {}
+        await deleteSessionDirectory(sessionPath);
     });
 
     // Interceptação de mensagens recebidas ou enviadas
@@ -1144,6 +1145,10 @@ app.post('/api/admin/disconnect', requireAdmin, async (req, res) => {
     const clientState = companyClients.get(req.companyId);
     
     if (clientState) {
+        // Obtém o PID do processo do navegador antes de tentar fechar para podermos forçar encerramento em caso de travamento
+        const browser = clientState.client.pupPage ? clientState.client.pupPage.browser() : null;
+        const pid = browser ? browser.process()?.pid : null;
+
         // Logout com timeout para evitar travamentos
         try {
             await Promise.race([
@@ -1157,10 +1162,21 @@ app.post('/api/admin/disconnect', requireAdmin, async (req, res) => {
         
         // Destruir cliente para fechar o Puppeteer e liberar os arquivos
         try {
-            await clientState.client.destroy();
-            console.log(`[WhatsApp - Disconnect] Cliente destruído.`);
+            await Promise.race([
+                clientState.client.destroy(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout no destroy')), 3000))
+            ]);
+            console.log(`[WhatsApp - Disconnect] Cliente destruído de forma limpa.`);
         } catch (e) {
-            console.log(`[WhatsApp - Disconnect] Erro ao destruir cliente: ${e.message}`);
+            console.log(`[WhatsApp - Disconnect] Destroy falhou ou atingiu timeout: ${e.message}`);
+            if (pid) {
+                try {
+                    process.kill(pid, 'SIGKILL');
+                    console.log(`[WhatsApp - Disconnect] Processo do navegador (${pid}) encerrado via SIGKILL.`);
+                } catch (err) {
+                    console.warn(`[WhatsApp - Disconnect] Erro ao forçar encerramento do processo ${pid}: ${err.message}`);
+                }
+            }
         }
         
         companyClients.delete(req.companyId);
