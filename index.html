@@ -840,7 +840,10 @@ window.addEventListener('DOMContentLoaded', async () => {
         const data = await res.json();
         
         if (state.user) {
+            state.isReady = data.ready;
+            state.qrError = data.error || null;
             enterDashboardOrChat();
+            updateConnectionBar();
         } else {
             showView('login');
         }
