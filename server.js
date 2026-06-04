@@ -771,21 +771,36 @@ async function getChatsWithRetry(client, retries = 3, delay = 2000) {
                 throw new Error('Navegador do WhatsApp não está disponível.');
             }
             
-            // Tenta obter de forma ultraleve direto do navegador (evita instanciar centenas de classes Chat no Node.js)
             const chats = await client.pupPage.evaluate(() => {
                 if (!window.Store || !window.Store.Chat || !window.Store.Chat.models) {
                     return null;
                 }
-                return window.Store.Chat.models.map(c => {
-                    const idObj = c.id || (c.attributes && c.attributes.id);
-                    return {
-                        id: idObj ? (idObj._serialized || idObj) : null,
-                        name: c.name || (c.attributes && c.attributes.name) || c.formattedTitle || (c.attributes && c.attributes.formattedTitle) || (idObj ? idObj.user : null) || 'Desconhecido',
-                        isGroup: c.isGroup !== undefined ? !!c.isGroup : (c.attributes ? !!c.attributes.isGroup : false),
-                        unreadCount: typeof c.unreadCount === 'number' ? c.unreadCount : (c.attributes && typeof c.attributes.unreadCount === 'number' ? c.attributes.unreadCount : 0),
-                        timestamp: c.t || (c.attributes && c.attributes.t) || c.timestamp || (c.attributes && c.attributes.timestamp) || 0
-                    };
-                }).filter(c => c.id);
+                const result = [];
+                for (const c of window.Store.Chat.models) {
+                    try {
+                        const idObj = c.id || (c.attributes && c.attributes.id);
+                        if (!idObj) continue;
+                        
+                        const serializedId = idObj._serialized || idObj;
+                        if (!serializedId) continue;
+                        
+                        const name = c.name || (c.attributes && c.attributes.name) || c.formattedTitle || (c.attributes && c.attributes.formattedTitle) || idObj.user || 'Desconhecido';
+                        const isGroup = c.isGroup !== undefined ? !!c.isGroup : (c.attributes ? !!c.attributes.isGroup : false);
+                        const unreadCount = typeof c.unreadCount === 'number' ? c.unreadCount : (c.attributes && typeof c.attributes.unreadCount === 'number' ? c.attributes.unreadCount : 0);
+                        const timestamp = c.t || (c.attributes && c.attributes.t) || c.timestamp || (c.attributes && c.attributes.timestamp) || 0;
+                        
+                        result.push({
+                            id: serializedId,
+                            name: name,
+                            isGroup: isGroup,
+                            unreadCount: unreadCount,
+                            timestamp: timestamp
+                        });
+                    } catch (e) {
+                        // Ignora erros de leitura de atributos em modelos corrompidos/incompletos
+                    }
+                }
+                return result;
             });
 
             if (chats) {
