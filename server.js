@@ -108,6 +108,72 @@ async function deleteSessionDirectory(sessionPath, retries = 5, delay = 500) {
     }
 }
 
+async function shutdownClient(companyId) {
+    const clientState = companyClients.get(companyId);
+    const sessionPath = getSessionPath(companyId);
+    
+    if (clientState) {
+        const client = clientState.client;
+        let pid = null;
+        try {
+            const browser = client.pupPage ? client.pupPage.browser() : null;
+            pid = browser ? browser.process()?.pid : null;
+        } catch (e) {
+            console.warn(`[WhatsApp - Shutdown] Erro ao obter PID do navegador: ${e.message}`);
+        }
+
+        console.log(`[WhatsApp - Shutdown] Iniciando encerramento para empresa: ${companyId} (PID: ${pid})`);
+
+        // Tenta logout
+        try {
+            await Promise.race([
+                client.logout(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout no logout')), 3000))
+            ]);
+            console.log(`[WhatsApp - Shutdown] Logout executado com sucesso.`);
+        } catch (e) {
+            console.log(`[WhatsApp - Shutdown] Logout ignorado ou falhou: ${e.message}`);
+        }
+
+        // Tenta destruir
+        try {
+            await Promise.race([
+                client.destroy(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout no destroy')), 3000))
+            ]);
+            console.log(`[WhatsApp - Shutdown] Cliente destruído de forma limpa.`);
+        } catch (e) {
+            console.log(`[WhatsApp - Shutdown] Destroy falhou ou atingiu timeout: ${e.message}`);
+            if (pid) {
+                try {
+                    process.kill(pid, 'SIGKILL');
+                    console.log(`[WhatsApp - Shutdown] Processo do navegador (${pid}) encerrado via SIGKILL.`);
+                } catch (err) {
+                    console.warn(`[WhatsApp - Shutdown] Erro ao forçar encerramento do processo ${pid}: ${err.message}`);
+                }
+            }
+        }
+        
+        companyClients.delete(companyId);
+    } else {
+        console.log(`[WhatsApp - Shutdown] Nenhum cliente ativo em memória para empresa: ${companyId}`);
+    }
+
+    // Sempre tenta limpar a pasta física de sessão
+    await deleteSessionDirectory(sessionPath);
+    
+    // Limpar cache local de versão do whatsapp-web.js caso exista
+    const cachePath = path.join(__dirname, '.wwebjs_cache');
+    if (fs.existsSync(cachePath)) {
+        try {
+            fs.rmSync(cachePath, { recursive: true, force: true });
+            console.log(`[Session Clean] Pasta .wwebjs_cache deletada com sucesso.`);
+        } catch (e) {
+            console.warn(`[Session Clean] Erro ao deletar .wwebjs_cache: ${e.message}`);
+        }
+    }
+}
+
 
 function matchBrazilianNumber(num1, num2) {
     let n1 = num1.replace(/\D/g, '');
@@ -187,6 +253,9 @@ async function initCompanyClient(company, ioInstance) {
 
     client.on('qr', async (qr) => {
         console.log(`[WhatsApp - ${company.slug}] QR Code gerado.`);
+        clientState.ready = false;
+        clientState.error = null;
+        ioInstance.to(company.id).emit('whatsapp_status', { ready: false });
         try {
             clientState.qr = await qrcode.toDataURL(qr, { errorCorrectionLevel: 'M', scale: 6 });
             ioInstance.to(company.id).emit('whatsapp_qr', { qr: clientState.qr });
@@ -245,15 +314,11 @@ async function initCompanyClient(company, ioInstance) {
                     clientState.error = `Número desconectado por falta de autorização. Número conectado: ${connectedNumber}. Permitidos: ${company.phone_number}`;
                     ioInstance.to(company.id).emit('whatsapp_status', { ready: false, error: 'unauthorized_number', number: connectedNumber, allowed: company.phone_number });
                     
-                    try {
-                        await client.logout();
-                        await client.destroy();
-                    } catch (e) {}
-                    
-                    // Limpar a pasta de autenticação para forçar um novo escaneamento
-                    await deleteSessionDirectory(sessionPath);
-                    
-                    companyClients.delete(company.id);
+                    setTimeout(() => {
+                        shutdownClient(company.id).catch(err => {
+                            console.error(`[WhatsApp - ${company.slug}] Erro no shutdown de número não autorizado:`, err.message);
+                        });
+                    }, 100);
                     return;
                 }
             }
@@ -270,21 +335,22 @@ async function initCompanyClient(company, ioInstance) {
         clientState.ready = false;
         clientState.error = 'auth_failure';
         ioInstance.to(company.id).emit('whatsapp_status', { ready: false, error: 'auth_failure' });
-        // Remove o cliente morto para permitir nova tentativa limpa
-        companyClients.delete(company.id);
-        try { await client.destroy(); } catch (e) {}
-        // Limpa a sessão para forçar escaneamento de novo QR
-        await deleteSessionDirectory(sessionPath);
-        console.log(`[WhatsApp - ${company.slug}] Cliente removido após auth_failure. Pronto para novo QR.`);
+        setTimeout(() => {
+            shutdownClient(company.id).catch(err => {
+                console.error(`[WhatsApp - ${company.slug}] Erro no shutdown pós auth_failure:`, err.message);
+            });
+        }, 100);
     });
 
     client.on('disconnected', async (reason) => {
         console.log(`[WhatsApp - ${company.slug}] Desconectado:`, reason);
         clientState.ready = false;
         ioInstance.to(company.id).emit('whatsapp_status', { ready: false, reason });
-        companyClients.delete(company.id);
-        try { await client.destroy(); } catch (e) {}
-        await deleteSessionDirectory(sessionPath);
+        setTimeout(() => {
+            shutdownClient(company.id).catch(err => {
+                console.error(`[WhatsApp - ${company.slug}] Erro no shutdown pós disconnected:`, err.message);
+            });
+        }, 100);
     });
 
     // Interceptação de mensagens recebidas ou enviadas
@@ -1138,65 +1204,14 @@ app.post('/api/admin/companies/signature', requireAdmin, async (req, res) => {
 // Desconectar / Deslogar WhatsApp da Empresa
 app.post('/api/admin/disconnect', requireAdmin, async (req, res) => {
     console.log(`[WhatsApp - Disconnect] Iniciando desconexão para empresa: ${req.companyId}`);
-    const clientState = companyClients.get(req.companyId);
-    
-    if (clientState) {
-        // Obtém o PID do processo do navegador antes de tentar fechar para podermos forçar encerramento em caso de travamento
-        const browser = clientState.client.pupPage ? clientState.client.pupPage.browser() : null;
-        const pid = browser ? browser.process()?.pid : null;
-
-        // Logout com timeout para evitar travamentos
-        try {
-            await Promise.race([
-                clientState.client.logout(),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout no logout')), 4000))
-            ]);
-            console.log(`[WhatsApp - Disconnect] Logout executado.`);
-        } catch (e) {
-            console.log(`[WhatsApp - Disconnect] Logout falhou ou atingiu timeout: ${e.message}`);
-        }
-        
-        // Destruir cliente para fechar o Puppeteer e liberar os arquivos
-        try {
-            await Promise.race([
-                clientState.client.destroy(),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout no destroy')), 3000))
-            ]);
-            console.log(`[WhatsApp - Disconnect] Cliente destruído de forma limpa.`);
-        } catch (e) {
-            console.log(`[WhatsApp - Disconnect] Destroy falhou ou atingiu timeout: ${e.message}`);
-            if (pid) {
-                try {
-                    process.kill(pid, 'SIGKILL');
-                    console.log(`[WhatsApp - Disconnect] Processo do navegador (${pid}) encerrado via SIGKILL.`);
-                } catch (err) {
-                    console.warn(`[WhatsApp - Disconnect] Erro ao forçar encerramento do processo ${pid}: ${err.message}`);
-                }
-            }
-        }
-        
-        companyClients.delete(req.companyId);
-    } else {
-        console.log(`[WhatsApp - Disconnect] Nenhum cliente ativo em memória. Prosseguindo com a remoção dos arquivos de sessão.`);
+    try {
+        await shutdownClient(req.companyId);
+        io.to(req.companyId).emit('whatsapp_status', { ready: false });
+        res.json({ success: true });
+    } catch (err) {
+        console.error(`[WhatsApp - Disconnect] Erro no disconnect API:`, err);
+        res.status(500).json({ error: `Erro ao desconectar: ${err.message}` });
     }
-    
-    // Sempre tenta limpar a pasta física de sessão, mesmo se o cliente não estava ativo em memória
-    const sessionPath = getSessionPath(req.companyId);
-    await deleteSessionDirectory(sessionPath);
-    
-    // Limpar cache local de versão do whatsapp-web.js caso exista
-    const cachePath = path.join(__dirname, '.wwebjs_cache');
-    if (fs.existsSync(cachePath)) {
-        try {
-            fs.rmSync(cachePath, { recursive: true, force: true });
-            console.log(`[Session Clean] Pasta .wwebjs_cache deletada com sucesso.`);
-        } catch (e) {
-            console.warn(`[Session Clean] Erro ao deletar .wwebjs_cache: ${e.message}`);
-        }
-    }
-    
-    io.to(req.companyId).emit('whatsapp_status', { ready: false });
-    res.json({ success: true });
 });
 
 
@@ -1330,11 +1345,9 @@ app.patch('/api/root/companies/:id', requireRoot, async (req, res) => {
         
         // Se a empresa foi desativada, desconecta seu whatsapp
         if (active === false && companyClients.has(req.params.id)) {
-            const clientState = companyClients.get(req.params.id);
-            try {
-                await clientState.client.destroy();
-            } catch (e) {}
-            companyClients.delete(req.params.id);
+            shutdownClient(req.params.id).catch(err => {
+                console.error(`[WhatsApp - System] Erro ao desativar empresa ${req.params.id}:`, err.message);
+            });
         }
 
         res.json(data[0]);
@@ -1349,11 +1362,9 @@ app.delete('/api/root/companies/:id', requireRoot, async (req, res) => {
     try {
         // Desconecta whatsapp se ativo
         if (companyClients.has(req.params.id)) {
-            const clientState = companyClients.get(req.params.id);
-            try {
-                await clientState.client.destroy();
-            } catch (e) {}
-            companyClients.delete(req.params.id);
+            shutdownClient(req.params.id).catch(err => {
+                console.error(`[WhatsApp - System] Erro ao excluir empresa ${req.params.id}:`, err.message);
+            });
         }
 
         const { error } = await supabase
