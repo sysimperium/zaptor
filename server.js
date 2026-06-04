@@ -156,10 +156,6 @@ async function initCompanyClient(company, ioInstance) {
 
     const client = new Client({
         authStrategy: new LocalAuth({ dataPath: sessionPath }),
-        webVersionCache: {
-            type: 'remote',
-            remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/{version}.html',
-        },
         userAgent: isLocal ? false : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
         puppeteer: {
             headless: true,
