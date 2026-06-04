@@ -767,52 +767,44 @@ app.post('/api/auth/login', async (req, res) => {
 async function getChatsWithRetry(client, retries = 3, delay = 2000) {
     for (let i = 0; i < retries; i++) {
         try {
-            // Tenta obter de forma ultraleve direto do navegador (evita instanciar centenas de classes Chat no Node.js)
-            if (client.pupPage) {
-                const chats = await client.pupPage.evaluate(() => {
-                    if (!window.Store || !window.Store.Chat || !window.Store.Chat.models) {
-                        return null;
-                    }
-                    return window.Store.Chat.models.map(c => {
-                        const idObj = c.id || (c.attributes && c.attributes.id);
-                        return {
-                            id: idObj ? (idObj._serialized || idObj) : null,
-                            name: c.name || (c.attributes && c.attributes.name) || c.formattedTitle || (c.attributes && c.attributes.formattedTitle) || (idObj ? idObj.user : null) || 'Desconhecido',
-                            isGroup: c.isGroup !== undefined ? !!c.isGroup : (c.attributes ? !!c.attributes.isGroup : false),
-                            unreadCount: typeof c.unreadCount === 'number' ? c.unreadCount : (c.attributes && typeof c.attributes.unreadCount === 'number' ? c.attributes.unreadCount : 0),
-                            timestamp: c.t || (c.attributes && c.attributes.t) || c.timestamp || (c.attributes && c.attributes.timestamp) || 0
-                        };
-                    }).filter(c => c.id);
-                });
-                if (chats) {
-                    console.log(`[getChats] Obtido ${chats.length} conversas de forma ultraleve via página.`);
-                    return chats;
-                }
+            if (!client.pupPage) {
+                throw new Error('Navegador do WhatsApp não está disponível.');
             }
+            
+            // Tenta obter de forma ultraleve direto do navegador (evita instanciar centenas de classes Chat no Node.js)
+            const chats = await client.pupPage.evaluate(() => {
+                if (!window.Store || !window.Store.Chat || !window.Store.Chat.models) {
+                    return null;
+                }
+                return window.Store.Chat.models.map(c => {
+                    const idObj = c.id || (c.attributes && c.attributes.id);
+                    return {
+                        id: idObj ? (idObj._serialized || idObj) : null,
+                        name: c.name || (c.attributes && c.attributes.name) || c.formattedTitle || (c.attributes && c.attributes.formattedTitle) || (idObj ? idObj.user : null) || 'Desconhecido',
+                        isGroup: c.isGroup !== undefined ? !!c.isGroup : (c.attributes ? !!c.attributes.isGroup : false),
+                        unreadCount: typeof c.unreadCount === 'number' ? c.unreadCount : (c.attributes && typeof c.attributes.unreadCount === 'number' ? c.attributes.unreadCount : 0),
+                        timestamp: c.t || (c.attributes && c.attributes.t) || c.timestamp || (c.attributes && c.attributes.timestamp) || 0
+                    };
+                }).filter(c => c.id);
+            });
+
+            if (chats) {
+                console.log(`[getChats] Obtido ${chats.length} conversas de forma ultraleve via página.`);
+                return chats;
+            }
+            
+            console.log(`[getChats] WhatsApp Store não carregado completamente na tentativa ${i + 1}.`);
         } catch (err) {
             console.warn(`[getChats] Tentativa ${i + 1} de consulta direta na página falhou: ${err.message}`);
         }
 
-        // Fallback para getChats padrão se o direct access falhar ou não tiver pupPage
-        try {
-            console.log(`[getChats] Usando fallback getChats padrão do whatsapp-web.js...`);
-            const standardChats = await client.getChats();
-            return standardChats.map(c => ({
-                id: c.id._serialized,
-                name: c.name || c.id.user || 'Desconhecido',
-                isGroup: c.isGroup,
-                unreadCount: c.unreadCount,
-                timestamp: c.timestamp || 0
-            }));
-        } catch (err) {
-            console.warn(`[getChats] Tentativa ${i + 1} de fallback falhou: ${err.message}`);
-            if (i < retries - 1) {
-                await new Promise(resolve => setTimeout(resolve, delay));
-            } else {
-                throw err;
-            }
+        if (i < retries - 1) {
+            await new Promise(resolve => setTimeout(resolve, delay));
         }
     }
+    
+    // Retorna uma lista vazia ou lança erro amigável ao invés de expirar a requisição HTTP com timeout longo
+    throw new Error('As conversas ainda estão carregando em segundo plano no WhatsApp. Atualize a página em alguns instantes.');
 }
 
 async function getChatByIdWithRetry(client, chatId, retries = 3, delay = 1500) {
