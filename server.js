@@ -162,7 +162,7 @@ async function initCompanyClient(company, ioInstance) {
         },
         userAgent: isLocal ? false : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
         puppeteer: {
-            headless: isLocal ? false : true,
+            headless: true,
             executablePath: executablePath,
             handleSIGTERM: false,
             protocolTimeout: 120000, // Evita timeout ao avaliar funções internas do WhatsApp Web
@@ -731,6 +731,16 @@ async function getChatByIdWithRetry(client, chatId, retries = 3, delay = 1500) {
     }
 }
 
+// Função auxiliar para tratamento padronizado de erros de API do Puppeteer/WhatsApp
+function handleApiError(res, err) {
+    const errMsg = err.toString();
+    console.error('[API Error]', errMsg);
+    if (errMsg.includes('Target closed') || errMsg.includes('Protocol error') || errMsg.includes('destroyed')) {
+        return res.status(503).json({ error: 'O navegador do WhatsApp foi fechado ou reiniciado. Aguarde a reconexão.' });
+    }
+    res.status(500).json({ error: errMsg });
+}
+
 // ── API: WhatsApp (Conversas e Ações) ─────────────────────────
 app.get('/api/chats', requireCompanyClient, async (req, res) => {
     try {
@@ -743,7 +753,7 @@ app.get('/api/chats', requireCompanyClient, async (req, res) => {
             timestamp: c.timestamp,
         })));
     } catch (err) {
-        res.status(500).json({ error: err.toString() });
+        handleApiError(res, err);
     }
 });
 
@@ -838,7 +848,7 @@ app.get('/api/chats/:chatId/messages', requireCompanyClient, async (req, res) =>
         }));
         res.json(mapped);
     } catch (err) {
-        res.status(500).json({ error: err.toString() });
+        handleApiError(res, err);
     }
 });
 
@@ -849,7 +859,7 @@ app.post('/api/chats/:chatId/read', requireCompanyClient, async (req, res) => {
         io.to(req.companyId).emit('chat_read', { chatId: req.params.chatId });
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: err.toString() });
+        handleApiError(res, err);
     }
 });
 
@@ -860,7 +870,7 @@ app.post('/api/chats/:chatId/unread', requireCompanyClient, async (req, res) => 
         io.to(req.companyId).emit('chat_unread', { chatId: req.params.chatId });
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: err.toString() });
+        handleApiError(res, err);
     }
 });
 
