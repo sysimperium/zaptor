@@ -77,7 +77,7 @@ echo.
 
 echo  Iniciando Zapptor (Backend + Proxy Reverso)...
 
-docker run -d --name zapptor-backend --network zapptor-net -p 3001:3001 -p 8080:3001 -e FRONTEND_URL=https://zapping-frontend.vercel.app -v "%~dp0backend\.wwebjs_auth:/app/.wwebjs_auth" -v /var/run/docker.sock:/var/run/docker.sock --restart unless-stopped zapping-backend:latest
+docker run -d --name zapptor-backend --network zapptor-net -p 3001:3001 -p 8080:3001 -e FRONTEND_URL=https://zapptor.vercel.app -v "%~dp0backend\.wwebjs_auth:/app/.wwebjs_auth" -v /var/run/docker.sock:/var/run/docker.sock --restart unless-stopped zapping-backend:latest
 
 if errorlevel 1 (
     echo.

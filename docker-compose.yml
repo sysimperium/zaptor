@@ -11,7 +11,7 @@ services:
       - "3001:3001"
       - "8080:3001" # Mapeia a porta de entrada antiga (8080) diretamente para o backend
     environment:
-      - FRONTEND_URL=https://zapping-frontend.vercel.app # ALTERE para a URL do seu frontend na Vercel
+      - FRONTEND_URL=https://zapptor.vercel.app # ALTERE para a URL do seu frontend na Vercel
     volumes:
       # Keep the WhatsApp session auth on the host so we don't have to scan QR code every time we restart Docker
       - ./backend/.wwebjs_auth:/app/.wwebjs_auth
