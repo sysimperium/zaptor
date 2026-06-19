@@ -1387,7 +1387,16 @@ const Chat = ({ user, token, onLogout }) => {
                                     <div className="w-10 h-10 rounded-full flex-shrink-0 mr-4 shadow-sm overflow-hidden">
                                         <ChatAvatar chatId={activeChat.id} name={activeChat.name} token={token} />
                                     </div>
-                                    <div className="font-bold text-gray-800 text-[17px]">{activeChat.name || 'Desconhecido'}</div>
+                                    <div className="flex flex-col">
+                                        <div className="font-bold text-gray-800 text-[17px] leading-tight">
+                                            {activeChat.name || 'Desconhecido'}
+                                        </div>
+                                        {!activeChat.isGroup && activeChat.id && (
+                                            <span className="text-[12px] text-gray-500 font-normal mt-0.5">
+                                                +{activeChat.id.split('@')[0]}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="flex space-x-4 text-gray-500">
                                     <Search size={18} className="cursor-pointer hover:text-gray-700" />
