@@ -1,0 +1,74 @@
+======================================================================
+                  ZAPPTOR - PLANEJAMENTO DA VERSÃO 2.0
+======================================================================
+
+Este documento descreve a arquitetura planejada para a versão 2.0 do 
+ZappTor, focando em simplificar o processo de instalação nos clientes,
+centralizar as atualizações de interface na nuvem e criar um sistema de
+licenciamento remoto.
+
+----------------------------------------------------------------------
+1. ARQUITETURA DE ESPELHAMENTO DO FRONTEND (PROXY REVERSO)
+----------------------------------------------------------------------
+Para evitar a necessidade de instalar, rodar ou atualizar o frontend 
+localmente em cada cliente, usaremos o Backend como servidor espelho:
+
+- Hospedagem Central: O frontend mais recente estará sempre hospedado 
+  em um serviço de nuvem pública (ex: https://zapptor.vercel.app).
+- Unificação de Portas: O backend local rodará em uma única porta 
+  (ex: 8080 ou 3001) para servir tanto a API quanto as telas.
+- Funcionamento do Proxy no Backend Local:
+  - Rotas de API (ex: /api/*): Processadas localmente pelo Node.js.
+  - Outras Rotas (ex: /*): O backend local faz uma requisição em segundo 
+    plano para a nuvem (Vercel) buscando o HTML/JS/CSS e o devolve para o 
+    navegador do cliente.
+- Segurança (Mixed Content): O navegador do operador acessará o 
+  sistema via HTTP puro usando o IP do servidor local (ex: http://192.168.1.50:8080). 
+  Como a origem do site e o destino da API possuem a mesma porta/protocolo, 
+  o navegador não bloqueia a conexão.
+- Benefício: Toda e qualquer alteração visual enviada para o Vercel 
+  é atualizada automaticamente para todos os clientes, instantaneamente.
+
+----------------------------------------------------------------------
+2. CENTRALIZAÇÃO E REMANÊNCIA DAS MENSALIDADES (LICENCIAMENTO CLOUD)
+----------------------------------------------------------------------
+Para eliminar a necessidade de acessar o PC do cliente ou alterar o 
+banco SQLite local para renovar licenças ou bloquear inadimplentes:
+
+- Servidor de Licenciamento: Criaremos um pequeno backend central na nuvem 
+  com banco de dados próprio para armazenar a lista de CNPJs autorizados, 
+  planos e datas de validade da licença.
+- Sincronização Periódica:
+  - Ao iniciar e a cada período (ex: 1 hora), o backend local do cliente 
+    faz uma requisição HTTPS para a nuvem passando o CNPJ/Identificador do cliente.
+  - A nuvem retorna o status (Ativo/Inativo), plano correto e nova expiração.
+  - O backend local atualiza seu estado em memória/banco SQLite.
+- Tela de Bloqueio Automática:
+  - Caso o cliente esteja inadimplente ou com licença expirada no painel 
+    central na nuvem, o backend local bloqueia todas as rotas e exibe uma 
+    tela amigável informando a chave PIX do Root para reativação.
+- Benefício: Controle total de suspensão e liberação de clientes a partir 
+  de um único painel web administrado pelo Root, na nuvem.
+
+----------------------------------------------------------------------
+3. PASSO A PASSO PARA A IMPLEMENTAÇÃO FUTURA
+----------------------------------------------------------------------
+Quando decidirmos implementar a versão 2.0, realizaremos os seguintes passos:
+
+Passo 1: Ajustar as URLs do Frontend
+  - Alterar as conexões de API e WebSocket no frontend para usar caminhos 
+    relativos (ex: '/api' e '/' em vez de 'http://localhost:3001').
+
+Passo 2: Criar o Proxy no Servidor Backend
+  - Instalar bibliotecas de proxy (ex: http-proxy-middleware ou implementar 
+    via fetch/stream) no backend local.
+  - Configurar o Express local para capturar requisições estáticas e 
+    espelhar o endereço do Vercel.
+
+Passo 3: Criar a API de Licenciamento (Nuvem)
+  - Desenvolver o servidor central de licenciamento para consulta de CNPJs.
+  - Implementar no backend local a rotina de validação e a tela de bloqueio.
+
+Passo 4: Atualizar scripts locais (.bat)
+  - Remover o container "zapptor-frontend" do docker-compose.yml e dos 
+    arquivos .bat, deixando apenas o backend ativo na porta principal.

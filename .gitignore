@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Production build output
+dist/
+**/dist/
+build/
+bin/
+obj/
+
+# Local env files
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+
+# WhatsApp Web.js auth sessions and cache (contains sensitive session keys)
+.wwebjs_auth/
+.wwebjs_cache/
+**/backend/.wwebjs_auth/
+**/backend/.wwebjs_cache/
+
+# Logs and databases
+*.log
+backend_logs.txt
+*.sqlite
+*.db
+
+# Temporary files and crash logs
+.eslintcache
+.stylelintcache
+*.tmp
+*.bak
+*.swp
+*~
+vite.config.js.timestamp-*.mjs
+**/vite.config.js.timestamp-*.mjs
+
+# Large compressed / archive files
+*.rar
+*.zip
+*.tar
+*.gz
+*.7z
+
+# Operating System Files
+.DS_Store
+Thumbs.db

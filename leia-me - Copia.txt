@@ -1,0 +1,58 @@
+Vamos agora organizar a questão das mensalidades
+Essa opção é para o usuario root
+Os admins vai conseguir VISUALIZAR e PAGAR com PIX as MENSALIDADES (para isso terá no ZAPPTOR uma opção de colcoar o PIX do ROOT) que será usado para pagamento
+
+Os tipos de PLANOS no cadastro da EMPRESA: 
+No ADMIN da EMPRESA aparecerá qual o PLANO está sendo usado
+E os TIPOS DE PLANOS:
+
+
+💬 Planos ZappTor
+
+🟢 Plano FREE
+R$ 0,00
+2 meses a partir do inicio do cadastro da EMPRESA no ZappTor 
+
+🟢 Plano Mensal
+
+R$ 25/mês
+Sem fidelidade
+
+🔵 Plano Trimestral
+
+Apenas R$ 24/mês
+Pagamento único de R$ 72
+Economia de R$ 3
+
+🟠 Plano Semestral
+
+Apenas R$ 22/mês
+Pagamento único de R$ 132
+Economia de R$ 18
+
+🟣 Plano 9 Meses
+
+Apenas R$ 21/mês
+Pagamento único de R$ 189
+Economia de R$ 36
+
+🏆 Plano Anual (Mais Econômico)
+
+Apenas R$ 20/mês
+Pagamento único de R$ 240
+Economia de R$ 60 por ano
+💎 Versão mais comercial
+Plano	Valor
+Mensal	R$ 25
+Trimestral	R$ 72
+Semestral	R$ 132
+9 Meses	R$ 189
+Anual	R$ 240
+
+Quanto maior o período, menor o valor mensal.
+
+✅ Mensal: R$ 25/mês
+✅ Trimestral: R$ 24/mês
+✅ Semestral: R$ 22/mês
+✅ 9 Meses: R$ 21/mês
+✅ Anual: R$ 20/mês

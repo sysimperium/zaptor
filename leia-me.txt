@@ -1,0 +1,9 @@
+Quero poder Deletar mensagem enviada, no mesmop padrão do whatsappweb, permitir o Shift + Enter - Quebrar linha
+
+Mostrar o numero do whatsapp do contato abaixo do nome (na @tela.png, está marcado de vermelho)
+
+Ao enviar um link, não fica como "link" clicavel na tela do zapptor
+
+Ao pesquisar um contato, não tem o (x) para apagar a pesquisa (no @tela.png está marcado com a linha verde)
+
+Ao clicar numa imagem, enviado pelo zapptor, não mostra a imagem, abre um nova aba do navegador, crie uma maneira de poder "aumentar" a imagem enviada
