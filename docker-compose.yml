@@ -15,4 +15,5 @@ services:
     volumes:
       # Keep the WhatsApp session auth on the host so we don't have to scan QR code every time we restart Docker
       - ./backend/.wwebjs_auth:/app/.wwebjs_auth
+      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped

@@ -1024,6 +1024,275 @@ setInterval(async () => {
     }
 }, 60 * 60 * 1000);
 
+// --- AUTO UPDATE SYSTEM ROUTINES ---
+let updateStatus = { status: 'idle', progress: 0, error: null };
+
+// GET /api/system/version
+app.get('/api/system/version', (req, res) => {
+    try {
+        const packageJson = require('./package.json');
+        res.json({ version: packageJson.version });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao obter versão do sistema.' });
+    }
+});
+
+// GET /api/system/update/status
+app.get('/api/system/update/status', (req, res) => {
+    res.json(updateStatus);
+});
+
+// POST /api/system/update
+app.post('/api/system/update', async (req, res) => {
+    const { downloadUrl } = req.body;
+    if (!downloadUrl) {
+        return res.status(400).json({ error: 'downloadUrl é obrigatório.' });
+    }
+
+    // Respond immediately to the frontend that the update process has begun
+    res.json({ message: 'Processo de atualização iniciado.' });
+
+    // Run the rest in background
+    (async () => {
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const os = require('os');
+            const http = require('http');
+            const https = require('https');
+
+            const tarPath = path.join(__dirname, 'zapping-backend.tar');
+
+            // Helper to download file with progress
+            const downloadFileWithProgress = (url, destPath) => {
+                return new Promise((resolve, reject) => {
+                    const file = fs.createWriteStream(destPath);
+                    updateStatus = { status: 'downloading', progress: 0, error: null };
+
+                    function get(urlToGet) {
+                        const lib = urlToGet.startsWith('https') ? https : http;
+                        lib.get(urlToGet, {
+                            headers: {
+                                'User-Agent': 'NodeJS-Downloader'
+                            }
+                        }, (response) => {
+                            if (response.statusCode === 301 || response.statusCode === 302) {
+                                get(response.headers.location);
+                                return;
+                            }
+
+                            if (response.statusCode !== 200) {
+                                reject(new Error(`Erro HTTP: ${response.statusCode}`));
+                                return;
+                            }
+
+                            const totalBytes = parseInt(response.headers['content-length'], 10) || 0;
+                            let downloadedBytes = 0;
+
+                            response.on('data', (chunk) => {
+                                downloadedBytes += chunk.length;
+                                if (totalBytes > 0) {
+                                    const percent = Math.round((downloadedBytes / totalBytes) * 100);
+                                    updateStatus.progress = percent;
+                                }
+                            });
+
+                            response.pipe(file);
+
+                            file.on('finish', () => {
+                                file.close();
+                                resolve();
+                            });
+                        }).on('error', (err) => {
+                            fs.unlink(destPath, () => {});
+                            reject(err);
+                        });
+                    }
+
+                    get(url);
+                });
+            };
+
+            // Helper to post file to docker images load endpoint
+            const loadDockerImage = (filePath) => {
+                return new Promise((resolve, reject) => {
+                    const req = http.request({
+                        socketPath: '/var/run/docker.sock',
+                        path: '/images/load',
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-tar'
+                        }
+                    }, (res) => {
+                        let data = '';
+                        res.on('data', (chunk) => { data += chunk; });
+                        res.on('end', () => {
+                            if (res.statusCode === 200) {
+                                resolve(data);
+                            } else {
+                                reject(new Error(`Load image error: ${data}`));
+                            }
+                        });
+                    });
+                    req.on('error', reject);
+                    const readStream = fs.createReadStream(filePath);
+                    readStream.pipe(req);
+                });
+            };
+
+            // Helper to pull image
+            const pullImage = (imageName, tag = 'latest') => {
+                return new Promise((resolve, reject) => {
+                    const req = http.request({
+                        socketPath: '/var/run/docker.sock',
+                        path: `/images/create?fromImage=${imageName}&tag=${tag}`,
+                        method: 'POST'
+                    }, (res) => {
+                        res.on('data', (chunk) => {});
+                        res.on('end', () => {
+                            if (res.statusCode === 200) {
+                                resolve();
+                            } else {
+                                reject(new Error(`Pull image status: ${res.statusCode}`));
+                            }
+                        });
+                    });
+                    req.on('error', reject);
+                    req.end();
+                });
+            };
+
+            // Helper to perform Docker API requests
+            const dockerApiRequest = (options, body = null) => {
+                return new Promise((resolve, reject) => {
+                    const req = http.request({
+                        socketPath: '/var/run/docker.sock',
+                        ...options
+                    }, (res) => {
+                        let data = '';
+                        res.on('data', (chunk) => { data += chunk; });
+                        res.on('end', () => {
+                            if (res.statusCode >= 200 && res.statusCode < 300) {
+                                try {
+                                    resolve(data ? JSON.parse(data) : null);
+                                } catch (e) {
+                                    resolve(data);
+                                }
+                            } else {
+                                reject(new Error(`Docker API error (${res.statusCode}): ${data}`));
+                            }
+                        });
+                    });
+                    req.on('error', reject);
+                    if (body) {
+                        req.write(typeof body === 'string' ? body : JSON.stringify(body));
+                    }
+                    req.end();
+                });
+            };
+
+            // 1. Download new version tar
+            console.log(`Iniciando download da atualização de: ${downloadUrl}`);
+            await downloadFileWithProgress(downloadUrl, tarPath);
+            console.log('Download concluído com sucesso.');
+
+            // 2. Load docker image
+            updateStatus = { status: 'loading_image', progress: 100, error: null };
+            console.log('Carregando imagem tar no Docker...');
+            await loadDockerImage(tarPath);
+            console.log('Imagem carregada no Docker com sucesso.');
+
+            // Remove tar file to save disk space
+            try {
+                fs.unlinkSync(tarPath);
+                console.log('Arquivo tar temporário excluído.');
+            } catch (err) {
+                console.error('Erro ao excluir arquivo tar temporário:', err);
+            }
+
+            // 3. Inspect configuration
+            updateStatus = { status: 'restarting', progress: 100, error: null };
+            const containerId = os.hostname();
+            console.log(`Inspecionando container ID: ${containerId}`);
+            
+            const containerInfo = await dockerApiRequest({
+                path: `/containers/${containerId}/json`,
+                method: 'GET'
+            });
+
+            const containerName = containerInfo.Name.replace(/^\//, '');
+            const image = containerInfo.Config.Image;
+
+            // Ports
+            const portBindings = containerInfo.HostConfig.PortBindings || {};
+            let portsStr = '';
+            for (const [containerPort, bindings] of Object.entries(portBindings)) {
+                if (bindings && bindings.length > 0) {
+                    for (const binding of bindings) {
+                        portsStr += ` -p ${binding.HostPort}:${containerPort}`;
+                    }
+                }
+            }
+
+            // Volumes
+            const binds = containerInfo.HostConfig.Binds || [];
+            let volumesStr = '';
+            for (const bind of binds) {
+                volumesStr += ` -v "${bind}"`;
+            }
+
+            // Envs
+            const envs = containerInfo.Config.Env || [];
+            let envsStr = '';
+            for (const env of envs) {
+                if (!env.startsWith('PATH=') && !env.startsWith('NODE_VERSION=')) {
+                    envsStr += ` -e "${env.replace(/"/g, '\\"')}"`;
+                }
+            }
+
+            // Networks
+            const networks = Object.keys(containerInfo.NetworkSettings.Networks || {});
+            let networkStr = '';
+            if (networks.length > 0) {
+                networkStr = ` --network ${networks[0]}`;
+            }
+
+            // Pull helper image
+            console.log('Puxando imagem docker:latest para o updater...');
+            await pullImage('docker', 'latest');
+
+            // Start updater container
+            const runCmd = `sleep 3 && docker stop ${containerName} && docker rm ${containerName} && docker run -d --name ${containerName}${portsStr}${volumesStr}${envsStr}${networkStr} --restart unless-stopped ${image}`;
+            
+            const updaterConfig = {
+                Image: 'docker:latest',
+                Cmd: ['sh', '-c', runCmd],
+                HostConfig: {
+                    Binds: ['/var/run/docker.sock:/var/run/docker.sock'],
+                    AutoRemove: true
+                }
+            };
+
+            console.log('Criando container updater...');
+            const updater = await dockerApiRequest({
+                path: '/containers/create',
+                method: 'POST'
+            }, updaterConfig);
+
+            console.log('Iniciando container updater...');
+            await dockerApiRequest({
+                path: `/containers/${updater.Id}/start`,
+                method: 'POST'
+            });
+
+            console.log('Updater iniciado com sucesso. Este container desligará em breve.');
+        } catch (err) {
+            console.error('Erro no fluxo de auto-atualização:', err);
+            updateStatus = { status: 'failed', progress: 0, error: err.message };
+        }
+    })();
+});
+
 // Initialize DB and start servers
 const PORT = 3001;
 initDatabase().then(() => {
