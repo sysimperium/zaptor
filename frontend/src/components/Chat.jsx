@@ -14,15 +14,29 @@ const SERVER_URL = localStorage.getItem('zapptor_backend_url') || (window.locati
 const ChatAvatar = ({ chatId, name, token }) => {
     const [picUrl, setPicUrl] = useState(null);
     useEffect(() => {
+        let active = true;
         if (!chatId || !token) return;
+        setPicUrl(null); // Clear previous avatar on contact change
         fetch(`${SERVER_URL}/api/contacts/${encodeURIComponent(chatId)}/profile-pic`, {
             headers: { 'Authorization': `Bearer ${token}` }
         })
             .then(res => res.json())
             .then(data => {
-                if (data.profilePicUrl) setPicUrl(data.profilePicUrl);
+                if (active) {
+                    if (data.profilePicUrl) {
+                        setPicUrl(data.profilePicUrl);
+                    } else {
+                        setPicUrl(null);
+                    }
+                }
             })
-            .catch(console.error);
+            .catch((err) => {
+                console.error(err);
+                if (active) setPicUrl(null);
+            });
+        return () => {
+            active = false;
+        };
     }, [chatId, token]);
 
     if (picUrl) {
@@ -31,6 +45,31 @@ const ChatAvatar = ({ chatId, name, token }) => {
 
     const getInitials = (n) => n ? n.substring(0, 2).toUpperCase() : '?';
     return <div className="w-full h-full bg-gradient-to-br from-green-400 to-teal-500 flex items-center justify-center text-white font-bold">{getInitials(name)}</div>;
+};
+
+const formatWhatsAppNumber = (whatsappId) => {
+    if (!whatsappId) return '';
+    const cleanNumber = whatsappId.split('@')[0];
+    
+    // Check if it's a Brazilian number (starts with 55)
+    if (cleanNumber.startsWith('55') && (cleanNumber.length >= 10 && cleanNumber.length <= 13)) {
+        const ddd = cleanNumber.substring(2, 4);
+        let numPart = cleanNumber.substring(4);
+        
+        // Brazilian mobile numbers should have 9 digits.
+        // If the number has 8 digits and starts with 6, 7, 8, or 9, format it with a leading 9.
+        if (numPart.length === 8 && ['6', '7', '8', '9'].includes(numPart[0])) {
+            numPart = '9' + numPart;
+        }
+        
+        if (numPart.length === 9) {
+            return `+55 (${ddd}) ${numPart.substring(0, 5)}-${numPart.substring(5)}`;
+        } else {
+            return `+55 (${ddd}) ${numPart.substring(0, 4)}-${numPart.substring(4)}`;
+        }
+    }
+    
+    return `+${cleanNumber}`;
 };
 
 const getDateSeparatorText = (timestamp) => {
@@ -950,7 +989,7 @@ const Chat = ({ user, token, onLogout }) => {
                                             onClick={() => setActiveChat(chat)}
                                         >
                                             <div className="w-12 h-12 rounded-full flex-shrink-0 overflow-hidden shadow-sm">
-                                                <ChatAvatar chatId={chat.id} name={chat.name} token={token} />
+                                                <ChatAvatar key={chat.id} chatId={chat.id} name={chat.name} token={token} />
                                             </div>
                                             <div className="ml-4 flex-1 overflow-hidden">
                                                 <div className="flex justify-between items-baseline mb-0.5">
@@ -1385,7 +1424,7 @@ const Chat = ({ user, token, onLogout }) => {
                             <div className="bg-[#f0f2f5] px-6 py-3 flex items-center justify-between shadow-sm z-10 border-l border-gray-200 h-16">
                                 <div className="flex items-center">
                                     <div className="w-10 h-10 rounded-full flex-shrink-0 mr-4 shadow-sm overflow-hidden">
-                                        <ChatAvatar chatId={activeChat.id} name={activeChat.name} token={token} />
+                                        <ChatAvatar key={activeChat.id} chatId={activeChat.id} name={activeChat.name} token={token} />
                                     </div>
                                     <div className="flex flex-col">
                                         <div className="font-bold text-gray-800 text-[17px] leading-tight">
@@ -1393,7 +1432,7 @@ const Chat = ({ user, token, onLogout }) => {
                                         </div>
                                         {!activeChat.isGroup && activeChat.id && (
                                             <span className="text-[12px] text-gray-500 font-normal mt-0.5">
-                                                +{activeChat.id.split('@')[0]}
+                                                {formatWhatsAppNumber(activeChat.id)}
                                             </span>
                                         )}
                                     </div>
