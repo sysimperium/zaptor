@@ -46,8 +46,8 @@ const Login = ({ onLogin }) => {
         e.preventDefault();
         // Clean URL trailing slash if exists
         const formattedUrl = backendUrl.replace(/\/$/, '');
-        setBackendUrl(formattedUrl);
-        checkConnection(formattedUrl);
+        localStorage.setItem('zapptor_backend_url', formattedUrl);
+        window.location.reload();
     };
 
     const handleSubmit = async (e) => {
