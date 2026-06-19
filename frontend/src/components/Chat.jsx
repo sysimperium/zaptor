@@ -7,9 +7,9 @@ import {
 } from 'lucide-react';
 import classNames from 'classnames';
 
-const SERVER_URL = window.location.port === '5173'
+const SERVER_URL = localStorage.getItem('zapptor_backend_url') || (window.location.port === '5173'
     ? `http://${window.location.hostname}:3001`
-    : `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}`;
+    : `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}`);
 
 const ChatAvatar = ({ chatId, name, token }) => {
     const [picUrl, setPicUrl] = useState(null);

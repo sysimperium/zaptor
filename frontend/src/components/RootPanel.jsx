@@ -32,9 +32,9 @@ const RootPanel = ({ token, user, onLogout }) => {
     const [newPaymentAmount, setNewPaymentAmount] = useState('150.00');
     const [newPaymentDate, setNewPaymentDate] = useState('');
 
-    const SERVER_URL = window.location.port === '5173'
+    const SERVER_URL = localStorage.getItem('zapptor_backend_url') || (window.location.port === '5173'
         ? `http://${window.location.hostname}:3001`
-        : `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}`;
+        : `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}`);
 
     const fetchData = async () => {
         try {
