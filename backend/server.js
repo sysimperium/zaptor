@@ -1027,6 +1027,11 @@ setInterval(async () => {
 // --- AUTO UPDATE SYSTEM ROUTINES ---
 let updateStatus = { status: 'idle', progress: 0, error: null };
 
+// GET /api/status (Health check for frontend connection check)
+app.get('/api/status', (req, res) => {
+    res.json({ status: 'online' });
+});
+
 // GET /api/system/version
 app.get('/api/system/version', (req, res) => {
     try {
